@@ -1,0 +1,10 @@
+data/*.sqlite3
+data/*.sqlite3-*
+static/uploads/*
+!static/uploads/.gitkeep
+server.out.log
+server.err.log
+server.log
+__pycache__/
+*.pyc
+.tools/

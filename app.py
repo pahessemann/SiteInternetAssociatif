@@ -6,18 +6,17 @@ import binascii
 import hashlib
 import hmac
 import html
+import json
 import mimetypes
 import os
 import re
 import secrets
-import smtplib
 import sqlite3
 import time
 import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from email.message import EmailMessage
 from email.parser import BytesParser
 from email.policy import default as email_policy
 from http import cookies
@@ -32,6 +31,7 @@ STATIC_DIR = BASE_DIR / "static"
 UPLOAD_DIR = STATIC_DIR / "uploads"
 DB_PATH = DATA_DIR / "vert_tige.sqlite3"
 LOG_PATH = BASE_DIR / "server.log"
+CSP_NONCE_PLACEHOLDER = "__VERT_TIGE_CSP_NONCE__"
 
 HOST = os.getenv("VERT_TIGE_HOST", "127.0.0.1")
 PORT = int(os.getenv("VERT_TIGE_PORT", "8000"))
@@ -44,13 +44,6 @@ ROLE_LABELS = {
     "owner": "Référent",
     "admin": "Administrateur",
 }
-
-SMTP_HOST = os.getenv("VERT_TIGE_SMTP_HOST", "")
-SMTP_PORT = int(os.getenv("VERT_TIGE_SMTP_PORT", "587"))
-SMTP_USER = os.getenv("VERT_TIGE_SMTP_USER", "")
-SMTP_PASSWORD = os.getenv("VERT_TIGE_SMTP_PASSWORD", "")
-SMTP_FROM = os.getenv("VERT_TIGE_SMTP_FROM", "site@vert-tige.local")
-CONTACT_TO = os.getenv("VERT_TIGE_CONTACT_EMAIL", "")
 
 MONTHS = [
     "",
@@ -85,6 +78,21 @@ DEFAULT_SETTINGS = {
     ),
     "contact_email": "contact@vert-tige.local",
     "logo_url": "",
+    "facebook_url": "",
+    "instagram_url": "",
+    "legal_publisher": "Association Vert-Tige",
+    "legal_responsible": "",
+    "legal_hosting": "",
+    "legal_text": "",
+    "google_ads_id": "",
+    "google_ads_conversion_label": "",
+    "site_url": "",
+    "seo_description": (
+        "Vert-Tige est un jardin partagé associatif du 14e arrondissement de Paris, "
+        "avec des ateliers, des événements, des articles et une galerie photo."
+    ),
+    "seo_image_url": "/static/hero-garden.png",
+    "google_site_verification": "",
 }
 
 
@@ -185,6 +193,12 @@ def valid_email(value: str) -> bool:
     return bool(re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", value or ""))
 
 
+def valid_optional_url(value: str) -> bool:
+    if not value:
+        return True
+    return bool(re.fullmatch(r"https://[^\s]+", value))
+
+
 def valid_iso_date(value: str) -> bool:
     try:
         date.fromisoformat(value)
@@ -243,6 +257,30 @@ def photo_visibility_options(selected: str | None, default: str = "both") -> str
     )
 
 
+def int_or_none(value: str | None) -> int | None:
+    try:
+        return int(value or "")
+    except ValueError:
+        return None
+
+
+def unique_album_slug(conn: sqlite3.Connection, name: str) -> str:
+    base = slugify(name)
+    candidate = base
+    index = 2
+    while conn.execute("SELECT id FROM photo_albums WHERE slug = ?", (candidate,)).fetchone():
+        candidate = f"{base}-{index}"
+        index += 1
+    return candidate
+
+
+def album_options(rows: list[sqlite3.Row], selected_id: int | None = None) -> str:
+    return "".join(
+        f'<option value="{row["id"]}" {"selected" if row["id"] == selected_id else ""}>{e(row["name"])}</option>'
+        for row in rows
+    )
+
+
 def calendar_event_chip(row: sqlite3.Row) -> str:
     time_text = format_time(row["start_time"])
     time_html = f"<span>{e(time_text)}</span>" if time_text else ""
@@ -266,6 +304,20 @@ def role_options(selected: str | None = "admin") -> str:
         f'<option value="{key}" {"selected" if key == current else ""}>{e(label)}</option>'
         for key, label in ROLE_LABELS.items()
     )
+
+
+def messaging_settings_form(settings: dict[str, str]) -> str:
+    return f"""
+    <form class="form-panel messaging-form" method="post" action="/admin/messages/settings">
+      <h2>Configuration de la messagerie</h2>
+      <div class="settings-section">
+        <h2>Formulaire de contact</h2>
+        <label>Email affiché sur le site<input type="email" name="contact_email" value="{e(settings.get('contact_email', ''))}"></label>
+        <p class="form-note">Les messages restent conservés dans l’administration. Après envoi du formulaire, le visiteur peut ouvrir son application mail avec un brouillon prérempli.</p>
+      </div>
+      <button class="button primary" type="submit">Enregistrer la messagerie</button>
+    </form>
+    """
 
 
 def normalize_username(value: str | None) -> str:
@@ -294,6 +346,305 @@ def read_settings() -> dict[str, str]:
         rows = conn.execute("SELECT key, value FROM settings").fetchall()
     settings.update({row["key"]: row["value"] for row in rows})
     return settings
+
+
+def versioned_static_url(path: str) -> str:
+    target = (BASE_DIR / path.lstrip("/")).resolve()
+    try:
+        version = int(target.stat().st_mtime)
+    except OSError:
+        version = 1
+    return f"{path}?v={version}"
+
+
+def compact_text(value: str | None, fallback: str = "", limit: int = 170) -> str:
+    text = re.sub(r"\s+", " ", value or "").strip()
+    if not text:
+        text = re.sub(r"\s+", " ", fallback or "").strip()
+    if len(text) <= limit:
+        return text
+    return text[: limit - 1].rsplit(" ", 1)[0].rstrip(".,;:") + "…"
+
+
+SEARCH_STOP_WORDS = {
+    "au",
+    "aux",
+    "avec",
+    "ce",
+    "ces",
+    "chez",
+    "dans",
+    "des",
+    "du",
+    "elle",
+    "elles",
+    "en",
+    "est",
+    "et",
+    "la",
+    "le",
+    "les",
+    "leur",
+    "leurs",
+    "nos",
+    "notre",
+    "par",
+    "pas",
+    "plus",
+    "pour",
+    "que",
+    "qui",
+    "sur",
+    "un",
+    "une",
+    "vos",
+    "votre",
+}
+
+
+def normalize_search_text(value: str | None) -> str:
+    text = unicodedata.normalize("NFKD", value or "")
+    text = "".join(char for char in text if not unicodedata.combining(char))
+    text = re.sub(r"[^a-zA-Z0-9]+", " ", text).lower()
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def search_tokens(value: str | None) -> list[str]:
+    return [
+        token
+        for token in normalize_search_text(value).split()
+        if len(token) > 1 and token not in SEARCH_STOP_WORDS
+    ]
+
+
+def article_search_score(row: sqlite3.Row, tokens: list[str], phrase: str) -> int:
+    title = normalize_search_text(row["title"])
+    summary = normalize_search_text(row["summary"])
+    body = normalize_search_text(row["body"])
+    score = 0
+    for token in tokens:
+        token_score = 0
+        if token in title:
+            token_score += 45
+            if title.startswith(token):
+                token_score += 10
+        if token in summary:
+            token_score += 24
+        if token in body:
+            token_score += 9
+        if token_score == 0:
+            return 0
+        score += token_score
+    if phrase and len(phrase) > 2:
+        if phrase in title:
+            score += 90
+        elif phrase in summary:
+            score += 45
+        elif phrase in body:
+            score += 20
+    return score
+
+
+def filter_article_rows(rows: list[sqlite3.Row], query: str) -> list[sqlite3.Row]:
+    tokens = search_tokens(query)
+    if not query.strip():
+        return rows
+    if not tokens:
+        return []
+    phrase = normalize_search_text(query)
+    scored = [
+        (article_search_score(row, tokens, phrase), row["created_at"], row)
+        for row in rows
+    ]
+    matches = [item for item in scored if item[0] > 0]
+    matches.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    return [row for _, _, row in matches]
+
+
+def contact_mailto_url(settings: dict[str, str], message: sqlite3.Row | None) -> str:
+    recipient = (settings.get("contact_email") or "").strip()
+    if not message or not valid_email(recipient):
+        return ""
+    subject = (message["subject"] or "Message depuis le site Vert-Tige").strip()
+    body = (
+        "Bonjour,\n\n"
+        f"{message['body']}\n\n"
+        "--\n"
+        f"{message['name']}\n"
+        f"{message['email']}\n"
+    )
+    return (
+        f"mailto:{quote(recipient, safe='@.+-_')}"
+        f"?subject={quote(subject, safe='')}"
+        f"&body={quote(body, safe='')}"
+    )
+
+
+def contact_message_by_token(token: str) -> sqlite3.Row | None:
+    if not re.fullmatch(r"[a-f0-9]{32}", token or ""):
+        return None
+    with connect() as conn:
+        return conn.execute("SELECT * FROM messages WHERE mail_token = ?", (token,)).fetchone()
+
+
+def public_base_url(settings: dict[str, str]) -> str:
+    configured = (settings.get("site_url") or "").strip().rstrip("/")
+    if configured:
+        return configured
+    return f"http://{HOST}:{PORT}"
+
+
+def absolute_url(path_or_url: str | None, settings: dict[str, str]) -> str:
+    value = (path_or_url or "").strip()
+    if not value:
+        value = "/"
+    if re.fullmatch(r"https?://[^\s]+", value):
+        return value
+    if not value.startswith("/"):
+        value = "/" + value
+    return public_base_url(settings) + value
+
+
+def page_title(title: str, settings: dict[str, str]) -> str:
+    site_title = settings["site_title"]
+    if title == "Accueil":
+        return f"{site_title} · {settings['tagline']}"
+    return f"{title} · {site_title}"
+
+
+def json_ld_script(data: dict[str, object]) -> str:
+    payload = json.dumps(data, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+    return f'<script type="application/ld+json" nonce="{CSP_NONCE_PLACEHOLDER}">{payload}</script>'
+
+
+def organization_schema(settings: dict[str, str]) -> dict[str, object]:
+    schema: dict[str, object] = {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": settings["site_title"],
+        "url": public_base_url(settings),
+        "description": compact_text(settings.get("seo_description"), settings.get("home_intro")),
+    }
+    if settings.get("contact_email"):
+        schema["email"] = settings["contact_email"]
+    logo = settings.get("logo_url") or settings.get("seo_image_url")
+    if logo:
+        schema["logo"] = absolute_url(logo, settings)
+    same_as = [
+        url
+        for url in [settings.get("facebook_url", ""), settings.get("instagram_url", "")]
+        if url
+    ]
+    if same_as:
+        schema["sameAs"] = same_as
+    return schema
+
+
+def website_schema(settings: dict[str, str]) -> dict[str, object]:
+    return {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": settings["site_title"],
+        "url": public_base_url(settings),
+        "description": compact_text(settings.get("seo_description"), settings.get("home_intro")),
+    }
+
+
+def event_schema(row: sqlite3.Row, settings: dict[str, str]) -> dict[str, object]:
+    start = row["starts_on"]
+    if row["start_time"]:
+        start = f"{start}T{row['start_time']}:00"
+    end = row["ends_on"] or row["starts_on"]
+    if row["end_time"]:
+        end = f"{end}T{row['end_time']}:00"
+    schema: dict[str, object] = {
+        "@context": "https://schema.org",
+        "@type": "Event",
+        "name": row["title"],
+        "startDate": start,
+        "endDate": end,
+        "description": compact_text(row["description"], row["title"]),
+        "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+        "eventStatus": "https://schema.org/EventScheduled",
+        "organizer": {
+            "@type": "Organization",
+            "name": settings["site_title"],
+            "url": public_base_url(settings),
+        },
+        "location": {
+            "@type": "Place",
+            "name": row["location"] or "Jardin Vert-Tige",
+            "address": row["address"] or "Paris 14",
+        },
+    }
+    return schema
+
+
+def article_schema(row: sqlite3.Row, settings: dict[str, str]) -> dict[str, object]:
+    image = row["image_url"] or settings.get("seo_image_url")
+    return {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": row["title"],
+        "description": compact_text(row["summary"], row["body"]),
+        "image": absolute_url(image, settings),
+        "datePublished": row["created_at"],
+        "dateModified": row["updated_at"],
+        "url": absolute_url(f"/articles/{quote(row['slug'])}", settings),
+        "author": {
+            "@type": "Organization",
+            "name": settings["site_title"],
+        },
+        "publisher": organization_schema(settings),
+    }
+
+
+def seo_head(
+    settings: dict[str, str],
+    title: str,
+    current_path: str,
+    description: str | None = None,
+    image_url: str | None = None,
+    og_type: str = "website",
+    structured_data: list[dict[str, object]] | None = None,
+    indexable: bool = True,
+) -> str:
+    title_text = page_title(title, settings)
+    description_text = compact_text(
+        description,
+        settings.get("seo_description") or settings.get("home_intro") or settings.get("tagline"),
+    )
+    image = image_url or settings.get("seo_image_url") or "/static/hero-garden.png"
+    canonical = absolute_url(current_path, settings)
+    robots = "" if indexable else '<meta name="robots" content="noindex, nofollow">'
+    verification = settings.get("google_site_verification", "").strip()
+    verification_meta = (
+        f'<meta name="google-site-verification" content="{e(verification)}">'
+        if verification
+        else ""
+    )
+    schemas = []
+    if indexable:
+        schemas.extend([organization_schema(settings), *(structured_data or [])])
+        if current_path == "/":
+            schemas.append(website_schema(settings))
+    schema_html = "\n  ".join(json_ld_script(schema) for schema in schemas)
+    return f"""
+  <meta name="description" content="{e(description_text)}">
+  {robots}
+  {verification_meta}
+  <link rel="canonical" href="{e(canonical)}">
+  <meta property="og:site_name" content="{e(settings['site_title'])}">
+  <meta property="og:title" content="{e(title_text)}">
+  <meta property="og:description" content="{e(description_text)}">
+  <meta property="og:type" content="{e(og_type)}">
+  <meta property="og:url" content="{e(canonical)}">
+  <meta property="og:image" content="{e(absolute_url(image, settings))}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{e(title_text)}">
+  <meta name="twitter:description" content="{e(description_text)}">
+  <meta name="twitter:image" content="{e(absolute_url(image, settings))}">
+  {schema_html}"""
 
 
 def init_db() -> None:
@@ -335,10 +686,19 @@ def init_db() -> None:
 
             CREATE TABLE IF NOT EXISTS photos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                album_id INTEGER,
                 filename TEXT NOT NULL,
                 title TEXT,
                 caption TEXT,
                 visibility TEXT NOT NULL DEFAULT 'both',
+                created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS photo_albums (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                slug TEXT NOT NULL UNIQUE,
+                description TEXT,
                 created_at TEXT NOT NULL
             );
 
@@ -348,6 +708,7 @@ def init_db() -> None:
                 email TEXT NOT NULL,
                 subject TEXT,
                 body TEXT NOT NULL,
+                mail_token TEXT,
                 handled INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL
             );
@@ -378,12 +739,34 @@ def init_db() -> None:
             conn,
             "photos",
             {
+                "album_id": "INTEGER",
                 "visibility": "TEXT NOT NULL DEFAULT 'both'",
+            },
+        )
+        ensure_columns(
+            conn,
+            "messages",
+            {
+                "mail_token": "TEXT",
             },
         )
         conn.execute(
             "UPDATE photos SET visibility = 'both' WHERE visibility IS NULL OR visibility = ''"
         )
+        album_count = conn.execute("SELECT COUNT(*) AS count FROM photo_albums").fetchone()["count"]
+        if album_count == 0:
+            conn.execute(
+                "INSERT INTO photo_albums (name, slug, description, created_at) VALUES (?, ?, ?, ?)",
+                ("Général", "general", "Photos non classées ou communes.", now_iso()),
+            )
+        default_album = conn.execute(
+            "SELECT id FROM photo_albums ORDER BY id LIMIT 1"
+        ).fetchone()
+        if default_album:
+            conn.execute(
+                "UPDATE photos SET album_id = ? WHERE album_id IS NULL",
+                (default_album["id"],),
+            )
         user_count = conn.execute("SELECT COUNT(*) AS count FROM admin_users").fetchone()["count"]
         if user_count == 0:
             salt, password_hash = hash_password(ADMIN_PASSWORD)
@@ -509,10 +892,61 @@ def nav_link(path: str, label: str, current: str) -> str:
     return f'<a class="nav-link{active}" href="{path}">{label}</a>'
 
 
-def layout(title: str, body: str, current_path: str = "/") -> str:
+def social_icon_link(url: str, label: str, path: str, service: str) -> str:
+    classes = f"social-link social-{service}"
+    if not url:
+        return f"""
+    <span class="{classes} is-disabled" aria-label="{e(label)} non configuré" title="{e(label)} non configuré">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="{path}"></path></svg>
+    </span>
+    """
+    return f"""
+    <a class="{classes}" href="{e(url)}" target="_blank" rel="noopener noreferrer" aria-label="{e(label)}">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="{path}"></path></svg>
+    </a>
+    """
+
+
+def google_ads_head(settings: dict[str, str], track_conversion: bool) -> str:
+    ads_id = settings.get("google_ads_id", "").strip()
+    if not ads_id:
+        return ""
+    conversion_label = settings.get("google_ads_conversion_label", "").strip()
+    conversion_meta = (
+        '<meta name="google-ads-conversion" content="contact">'
+        if track_conversion and conversion_label
+        else ""
+    )
+    return f"""
+  <meta name="google-ads-id" content="{e(ads_id)}">
+  <meta name="google-ads-conversion-label" content="{e(conversion_label)}">
+  {conversion_meta}
+  <script async src="https://www.googletagmanager.com/gtag/js?id={e(ads_id)}"></script>
+  <script src="/static/google-ads.js" defer></script>"""
+
+
+def layout(
+    title: str,
+    body: str,
+    current_path: str = "/",
+    track_conversion: bool = False,
+    description: str | None = None,
+    image_url: str | None = None,
+    og_type: str = "website",
+    structured_data: list[dict[str, object]] | None = None,
+    indexable: bool = True,
+) -> str:
     settings = read_settings()
     site_title = settings["site_title"]
     logo_url = settings.get("logo_url", "")
+    stylesheet_url = versioned_static_url("/static/styles.css")
+    editor_url = versioned_static_url("/static/article-editor.js")
+    facebook_path = "M22 12.06C22 6.49 17.52 2 11.94 2S2 6.49 2 12.06c0 5.02 3.66 9.19 8.44 9.94v-7.03H7.9v-2.91h2.54V9.85c0-2.51 1.49-3.9 3.77-3.9 1.09 0 2.23.2 2.23.2v2.46h-1.25c-1.24 0-1.63.77-1.63 1.56v1.89h2.78l-.44 2.91h-2.34V22c4.78-.75 8.44-4.92 8.44-9.94z"
+    instagram_path = "M7.7 2h8.6A5.7 5.7 0 0 1 22 7.7v8.6a5.7 5.7 0 0 1-5.7 5.7H7.7A5.7 5.7 0 0 1 2 16.3V7.7A5.7 5.7 0 0 1 7.7 2zm0 2A3.7 3.7 0 0 0 4 7.7v8.6A3.7 3.7 0 0 0 7.7 20h8.6a3.7 3.7 0 0 0 3.7-3.7V7.7A3.7 3.7 0 0 0 16.3 4H7.7zm4.3 3.35A4.65 4.65 0 1 1 7.35 12 4.65 4.65 0 0 1 12 7.35zm0 2A2.65 2.65 0 1 0 14.65 12 2.65 2.65 0 0 0 12 9.35zm5.03-2.2a1.08 1.08 0 1 1-1.08 1.08 1.08 1.08 0 0 1 1.08-1.08z"
+    social_links = (
+        social_icon_link(settings.get("facebook_url", ""), "Facebook", facebook_path, "facebook")
+        + social_icon_link(settings.get("instagram_url", ""), "Instagram", instagram_path, "instagram")
+    )
     brand_mark = (
         f'<img class="brand-logo" src="{e(logo_url)}" alt="">'
         if logo_url
@@ -532,9 +966,11 @@ def layout(title: str, body: str, current_path: str = "/") -> str:
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{e(title)} · {e(site_title)}</title>
-  <link rel="stylesheet" href="/static/styles.css">
-  <script src="/static/article-editor.js" defer></script>
+  <title>{e(page_title(title, settings))}</title>
+  {seo_head(settings, title, current_path, description, image_url, og_type, structured_data, indexable)}
+  <link rel="stylesheet" href="{e(stylesheet_url)}">
+  <script src="{e(editor_url)}" defer></script>
+  {google_ads_head(settings, track_conversion)}
 </head>
 <body>
   <header class="site-header">
@@ -550,7 +986,11 @@ def layout(title: str, body: str, current_path: str = "/") -> str:
       <strong>{e(site_title)}</strong>
       <span>{e(settings["tagline"])}</span>
     </div>
-    <a href="/admin">Administration</a>
+    <div class="footer-social">{social_links}</div>
+    <div class="footer-links">
+      <a href="/mentions-legales">Mentions légales</a>
+      <a href="/admin">Administration</a>
+    </div>
   </footer>
 </body>
 </html>"""
@@ -663,7 +1103,14 @@ def home_page() -> str:
       {photo_html}
     </section>
     """
-    return layout("Accueil", body, "/")
+    return layout(
+        "Accueil",
+        body,
+        "/",
+        description=settings["home_intro"],
+        image_url="/static/hero-garden.png",
+        structured_data=[event_schema(row, settings) for row in events],
+    )
 
 
 def empty_state(message: str) -> str:
@@ -745,6 +1192,7 @@ def render_calendar_month(current: date, events: list[sqlite3.Row]) -> str:
 
 
 def agenda_page(query: dict[str, list[str]]) -> str:
+    settings = read_settings()
     current = parse_month(query)
     start = current.isoformat()
     next_month = add_month(current, 1)
@@ -786,14 +1234,37 @@ def agenda_page(query: dict[str, list[str]]) -> str:
       <div class="list-stack">{"".join(event_card(row) for row in upcoming) or empty_state("Aucun événement à venir.")}</div>
     </section>
     """
-    return layout("Agenda", body, "/agenda")
+    return layout(
+        "Agenda",
+        body,
+        "/agenda",
+        description="Calendrier des ateliers, permanences et événements du jardin partagé Vert-Tige à Paris 14.",
+        image_url=settings.get("seo_image_url"),
+        structured_data=[event_schema(row, settings) for row in upcoming],
+    )
 
 
-def articles_page() -> str:
+def articles_page(query: dict[str, list[str]] | None = None) -> str:
+    query = query or {}
+    search_query = query.get("q", [""])[0].strip()
     with connect() as conn:
-        rows = conn.execute(
+        all_rows = conn.execute(
             "SELECT * FROM articles WHERE published = 1 ORDER BY created_at DESC"
         ).fetchall()
+    rows = filter_article_rows(all_rows, search_query)
+    clear_link = '<a class="button secondary" href="/articles">Effacer</a>' if search_query else ""
+    result_count = len(rows)
+    result_label = "article trouvé" if result_count == 1 else "articles trouvés"
+    search_summary = (
+        f'<p class="search-summary">{result_count} {result_label} pour <strong>{e(search_query)}</strong>.</p>'
+        if search_query
+        else ""
+    )
+    empty_message = (
+        f"Aucun article ne correspond à « {search_query} »."
+        if search_query
+        else "Aucun article publié."
+    )
     body = f"""
     <section class="page-hero compact-hero">
       <p class="eyebrow">Articles</p>
@@ -801,13 +1272,29 @@ def articles_page() -> str:
       <p>Actualités, récits d’ateliers et nouvelles du jardin partagé.</p>
     </section>
     <section class="section">
-      <div class="card-grid">{"".join(article_card(row) for row in rows) or empty_state("Aucun article publié.")}</div>
+      <form class="article-search" method="get" action="/articles" role="search" aria-label="Rechercher dans les articles">
+        <label for="article-search">Rechercher un article</label>
+        <div class="search-row">
+          <input id="article-search" type="search" name="q" value="{e(search_query)}" placeholder="Atelier, compost, semis..." autocomplete="off">
+          <button class="button primary" type="submit">Rechercher</button>
+          {clear_link}
+        </div>
+      </form>
+      {search_summary}
+      <div class="card-grid">{"".join(article_card(row) for row in rows) or empty_state(empty_message)}</div>
     </section>
     """
-    return layout("Articles", body, "/articles")
+    return layout(
+        "Recherche d’articles" if search_query else "Articles",
+        body,
+        "/articles",
+        description="Articles, actualités et récits des ateliers du jardin partagé Vert-Tige à Paris 14.",
+        indexable=not bool(search_query),
+    )
 
 
 def article_page(slug: str) -> str:
+    settings = read_settings()
     with connect() as conn:
         row = conn.execute(
             "SELECT * FROM articles WHERE slug = ? AND published = 1",
@@ -827,14 +1314,59 @@ def article_page(slug: str) -> str:
       <div class="article-body">{paragraphs(row["body"])}</div>
     </article>
     """
-    return layout(row["title"], body, "/articles")
+    return layout(
+        row["title"],
+        body,
+        f"/articles/{quote(row['slug'])}",
+        description=row["summary"] or row["body"],
+        image_url=image,
+        og_type="article",
+        structured_data=[article_schema(row, settings)],
+    )
 
 
-def gallery_page() -> str:
+def gallery_page(query: dict[str, list[str]] | None = None) -> str:
+    query = query or {}
+    album_slug = query.get("album", [""])[0]
     with connect() as conn:
-        rows = conn.execute(
-            "SELECT * FROM photos WHERE visibility IN ('gallery', 'both') ORDER BY created_at DESC"
+        albums = conn.execute(
+            """
+            SELECT a.*, COUNT(p.id) AS photo_count
+            FROM photo_albums a
+            LEFT JOIN photos p
+              ON p.album_id = a.id AND p.visibility IN ('gallery', 'both')
+            GROUP BY a.id
+            ORDER BY a.name
+            """
         ).fetchall()
+        current_album = None
+        params: tuple[object, ...] = ()
+        where = "WHERE p.visibility IN ('gallery', 'both')"
+        if album_slug:
+            current_album = conn.execute(
+                "SELECT * FROM photo_albums WHERE slug = ?",
+                (album_slug,),
+            ).fetchone()
+            if current_album:
+                where += " AND p.album_id = ?"
+                params = (current_album["id"],)
+        rows = conn.execute(
+            f"""
+            SELECT p.*, a.name AS album_name, a.slug AS album_slug
+            FROM photos p
+            LEFT JOIN photo_albums a ON a.id = p.album_id
+            {where}
+            ORDER BY p.created_at DESC
+            """,
+            params,
+        ).fetchall()
+    album_links = [
+        f'<a class="album-filter {"is-active" if not album_slug else ""}" href="/galerie">Toutes</a>'
+    ]
+    album_links.extend(
+        f'<a class="album-filter {"is-active" if album_slug == album["slug"] else ""}" href="/galerie?album={quote(album["slug"])}">{e(album["name"])} <span>{album["photo_count"]}</span></a>'
+        for album in albums
+    )
     if rows:
         items = "".join(
             f"""
@@ -842,7 +1374,7 @@ def gallery_page() -> str:
               <img src="/static/uploads/{e(row['filename'])}" alt="{e(row['title'] or 'Photo du jardin')}">
               <figcaption>
                 <strong>{e(row['title'] or 'Photo du jardin')}</strong>
-                <span>{e(row['caption'] or '')}</span>
+                <span>{e(row['caption'] or row['album_name'] or '')}</span>
               </figcaption>
             </figure>
             """
@@ -858,23 +1390,36 @@ def gallery_page() -> str:
     body = f"""
     <section class="page-hero compact-hero">
       <p class="eyebrow">Photos</p>
-      <h1>Banque de photos</h1>
+      <h1>{e(current_album['name']) if current_album else 'Banque de photos'}</h1>
       <p>Un espace pour conserver et partager les images du jardin.</p>
     </section>
     <section class="section">
+      <div class="album-filters">{"".join(album_links)}</div>
       <div class="photo-grid">{items}</div>
     </section>
     """
-    return layout("Photos", body, "/galerie")
-
-
-def contact_page(sent: bool = False) -> str:
-    settings = read_settings()
-    success = (
-        '<div class="notice success">Message envoyé. Il est aussi conservé dans l’administration.</div>'
-        if sent
-        else ""
+    gallery_description = (
+        f"Album photo {current_album['name']} du jardin partagé Vert-Tige."
+        if current_album
+        else "Galerie photo du jardin partagé Vert-Tige à Paris 14."
     )
+    canonical_path = f"/galerie?album={quote(current_album['slug'])}" if current_album else "/galerie"
+    return layout(
+        current_album["name"] if current_album else "Photos",
+        body,
+        canonical_path,
+        description=gallery_description,
+    )
+
+
+def contact_page(sent: bool = False, saved: bool = False) -> str:
+    settings = read_settings()
+    if sent:
+        success = '<div class="notice success">Message envoyé par email. Il est aussi conservé dans l’administration.</div>'
+    elif saved:
+        success = '<div class="notice warning">Message bien reçu et conservé dans l’administration. L’envoi email n’est pas encore configuré ou a échoué.</div>'
+    else:
+        success = ""
     body = f"""
     <section class="page-hero compact-hero">
       <p class="eyebrow">Contact</p>
@@ -900,7 +1445,48 @@ def contact_page(sent: bool = False) -> str:
       </aside>
     </section>
     """
-    return layout("Contact", body, "/contact")
+    return layout(
+        "Contact",
+        body,
+        "/contact",
+        track_conversion=sent,
+        description="Contacter l’association Vert-Tige pour une question, une inscription ou une proposition d’atelier.",
+    )
+
+
+def legal_page() -> str:
+    settings = read_settings()
+    legal_text = settings.get("legal_text", "").strip()
+    extra = paragraphs(legal_text) if legal_text else "<p>Ces informations pourront être complétées avant la mise en ligne officielle.</p>"
+    body = f"""
+    <section class="page-hero compact-hero">
+      <p class="eyebrow">Cadre légal</p>
+      <h1>Mentions légales</h1>
+      <p>Informations relatives à l’édition et à l’hébergement du site.</p>
+    </section>
+    <section class="section legal-layout">
+      <article class="legal-block">
+        <h2>Éditeur du site</h2>
+        <p><strong>{e(settings.get("legal_publisher") or settings["site_title"])}</strong></p>
+        <p>Responsable de publication : {e(settings.get("legal_responsible") or "À compléter")}</p>
+        <p>Contact : {e(settings.get("contact_email") or "À compléter")}</p>
+      </article>
+      <article class="legal-block">
+        <h2>Hébergement</h2>
+        <p>{e(settings.get("legal_hosting") or "À compléter")}</p>
+      </article>
+      <article class="legal-block">
+        <h2>Informations complémentaires</h2>
+        {extra}
+      </article>
+    </section>
+    """
+    return layout(
+        "Mentions légales",
+        body,
+        "/mentions-legales",
+        description="Mentions légales du site de l’association Vert-Tige.",
+    )
 
 
 def admin_shell(title: str, content: str, tab: str = "/admin") -> str:
@@ -928,7 +1514,7 @@ def admin_shell(title: str, content: str, tab: str = "/admin") -> str:
       {content}
     </section>
     """
-    return layout(f"Admin - {title}", body, "/admin")
+    return layout(f"Admin - {title}", body, "/admin", indexable=False)
 
 
 def login_page(error: bool = False) -> str:
@@ -946,7 +1532,7 @@ def login_page(error: bool = False) -> str:
       </form>
     </section>
     """
-    return layout("Connexion admin", body, "/admin")
+    return layout("Connexion admin", body, "/admin/login", indexable=False)
 
 
 def admin_dashboard() -> str:
@@ -971,7 +1557,7 @@ def admin_dashboard() -> str:
     content = f"""
     <div class="metrics">{cards}</div>
     <div class="admin-grid">
-      <a class="admin-action" href="/admin/home"><strong>Page d’accueil</strong><span>Modifier le texte principal et l’email de contact.</span></a>
+      <a class="admin-action" href="/admin/home"><strong>Page d’accueil</strong><span>Modifier le logo, le texte principal et le référencement.</span></a>
       <a class="admin-action" href="/admin/events/new"><strong>Nouvel événement</strong><span>Ajouter un atelier ou une permanence au calendrier.</span></a>
       <a class="admin-action" href="/admin/articles/new"><strong>Nouvel article</strong><span>Rédiger une actualité et choisir si elle est mise en avant.</span></a>
       <a class="admin-action" href="/admin/photos"><strong>Ajouter des photos</strong><span>Alimenter la banque d’images du jardin.</span></a>
@@ -992,7 +1578,6 @@ def admin_home_page() -> str:
     <form class="form-panel" method="post" action="/admin/home" enctype="multipart/form-data">
       <label>Nom du site<input name="site_title" value="{e(settings['site_title'])}" required></label>
       <label>Sous-titre<input name="tagline" value="{e(settings['tagline'])}" required></label>
-      <label>Email affiché<input type="email" name="contact_email" value="{e(settings['contact_email'])}"></label>
       <div class="logo-editor">
         <div>
           <p class="field-label">Logo actuel</p>
@@ -1004,6 +1589,35 @@ def admin_home_page() -> str:
         </div>
       </div>
       <label>Texte d’accueil<textarea name="home_intro" rows="7">{e(settings['home_intro'])}</textarea></label>
+      <div class="settings-section">
+        <h2>Réseaux sociaux</h2>
+        <div class="form-row">
+          <label>Facebook<input type="url" name="facebook_url" value="{e(settings.get('facebook_url', ''))}" placeholder="https://www.facebook.com/..."></label>
+          <label>Instagram<input type="url" name="instagram_url" value="{e(settings.get('instagram_url', ''))}" placeholder="https://www.instagram.com/..."></label>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h2>Référencement</h2>
+        <label>URL publique du site<input type="url" name="site_url" value="{e(settings.get('site_url', ''))}" placeholder="https://www.vert-tige.fr"></label>
+        <label>Description pour Google<textarea name="seo_description" rows="4">{e(settings.get('seo_description', ''))}</textarea></label>
+        <label>Validation Google Search Console<input name="google_site_verification" value="{e(settings.get('google_site_verification', ''))}" placeholder="Code fourni par Google"></label>
+        <p class="form-note">Ces champs alimentent les titres, descriptions, aperçus de partage, <code>sitemap.xml</code> et la balise de validation Google.</p>
+      </div>
+      <div class="settings-section">
+        <h2>Mentions légales</h2>
+        <label>Éditeur du site<input name="legal_publisher" value="{e(settings.get('legal_publisher', ''))}"></label>
+        <label>Responsable de publication<input name="legal_responsible" value="{e(settings.get('legal_responsible', ''))}"></label>
+        <label>Hébergeur<textarea name="legal_hosting" rows="4">{e(settings.get('legal_hosting', ''))}</textarea></label>
+        <label>Texte complémentaire<textarea name="legal_text" rows="7">{e(settings.get('legal_text', ''))}</textarea></label>
+      </div>
+      <div class="settings-section">
+        <h2>Google Ads</h2>
+        <div class="form-row">
+          <label>ID Google Ads<input name="google_ads_id" value="{e(settings.get('google_ads_id', ''))}" placeholder="AW-XXXXXXXXXX"></label>
+          <label>Libellé de conversion contact<input name="google_ads_conversion_label" value="{e(settings.get('google_ads_conversion_label', ''))}"></label>
+        </div>
+        <p class="form-note">Ces champs préparent le chargement du tag Google Ads et l’événement de conversion après envoi du formulaire de contact.</p>
+      </div>
       <button class="button primary" type="submit">Enregistrer</button>
     </form>
     """
@@ -1191,16 +1805,38 @@ def admin_article_edit_page(article_id: int | None = None) -> str:
 
 def admin_photos_page() -> str:
     with connect() as conn:
-        rows = conn.execute("SELECT * FROM photos ORDER BY created_at DESC").fetchall()
+        albums = conn.execute("SELECT * FROM photo_albums ORDER BY name").fetchall()
+        rows = conn.execute(
+            """
+            SELECT p.*, a.name AS album_name
+            FROM photos p
+            LEFT JOIN photo_albums a ON a.id = p.album_id
+            ORDER BY p.created_at DESC
+            """
+        ).fetchall()
+    album_list = "".join(
+        f"""
+        <tr>
+          <td><strong>{e(album['name'])}</strong><span>/{e(album['slug'])}</span></td>
+          <td>{e(album['description'] or '')}</td>
+          <td class="actions">
+            <form method="post" action="/admin/photos/albums/{album['id']}/delete"><button class="button small danger" type="submit">Supprimer</button></form>
+          </td>
+        </tr>
+        """
+        for album in albums
+    )
     items = "".join(
         f"""
         <figure class="photo-tile">
           <img src="/static/uploads/{e(row['filename'])}" alt="{e(row['title'] or 'Photo du jardin')}">
           <figcaption>
             <strong>{e(row['title'] or 'Photo du jardin')}</strong>
-            <span>{e(row['caption'] or '')}</span>
+            <span>{e(row['caption'] or row['album_name'] or '')}</span>
+            <em>{e(row['album_name'] or 'Sans album')}</em>
             <em>{e(photo_visibility_label(row['visibility']))}</em>
             <form class="inline-photo-form" method="post" action="/admin/photos/{row['id']}/visibility">
+              <select name="album_id">{album_options(albums, row['album_id'])}</select>
               <select name="visibility">{photo_visibility_options(row['visibility'])}</select>
               <button class="button small secondary" type="submit">Changer</button>
             </form>
@@ -1211,10 +1847,26 @@ def admin_photos_page() -> str:
         for row in rows
     )
     content = f"""
+    <div class="admin-two-column">
+      <form class="form-panel" method="post" action="/admin/photos/albums/create">
+        <h2>Créer un album</h2>
+        <label>Nom de l’album<input name="name" required></label>
+        <label>Description<textarea name="description" rows="3"></textarea></label>
+        <button class="button primary" type="submit">Créer l’album</button>
+      </form>
+      <table class="admin-table albums-table">
+        <thead><tr><th>Album</th><th>Description</th><th></th></tr></thead>
+        <tbody>{album_list or '<tr><td colspan="3">Aucun album.</td></tr>'}</tbody>
+      </table>
+    </div>
     <form class="form-panel" method="post" action="/admin/photos/upload" enctype="multipart/form-data">
+      <h2>Ajouter une photo</h2>
       <label>Image<input type="file" name="photo" accept="image/*" required></label>
       <label>Titre<input name="title"></label>
       <label>Légende<textarea name="caption" rows="4"></textarea></label>
+      <label>Album
+        <select name="album_id">{album_options(albums, albums[0]['id'] if albums else None)}</select>
+      </label>
       <label>Visibilité
         <select name="visibility">
           {photo_visibility_options("gallery", default="gallery")}
@@ -1228,6 +1880,7 @@ def admin_photos_page() -> str:
 
 
 def admin_messages_page() -> str:
+    settings = read_settings()
     with connect() as conn:
         rows = conn.execute("SELECT * FROM messages ORDER BY created_at DESC").fetchall()
     items = "".join(
@@ -1242,14 +1895,27 @@ def admin_messages_page() -> str:
           </header>
           <h3>{e(row['subject'] or 'Sans sujet')}</h3>
           {paragraphs(row['body'])}
-          <form method="post" action="/admin/messages/{row['id']}/toggle">
-            <button class="button small secondary" type="submit">{'Marquer à traiter' if row['handled'] else 'Marquer traité'}</button>
-          </form>
+          <div class="message-actions">
+            <form method="post" action="/admin/messages/{row['id']}/toggle">
+              <button class="button small secondary" type="submit">{'Marquer à traiter' if row['handled'] else 'Marquer traité'}</button>
+            </form>
+            {f'<form method="post" action="/admin/messages/{row["id"]}/delete"><button class="button small danger" type="submit">Supprimer</button></form>' if row['handled'] else ''}
+          </div>
         </article>
         """
         for row in rows
     )
-    return admin_shell("Messages", f'<div class="list-stack">{items or empty_state("Aucun message.")}</div>', "/admin/messages")
+    content = f"""
+    {messaging_settings_form(settings)}
+    <div class="section-heading admin-section-heading">
+      <div>
+        <p class="eyebrow">Messages reçus</p>
+        <h2>Formulaire de contact</h2>
+      </div>
+    </div>
+    <div class="list-stack">{items or empty_state("Aucun message.")}</div>
+    """
+    return admin_shell("Messages", content, "/admin/messages")
 
 
 def admin_users_page(current_user: sqlite3.Row) -> str:
@@ -1297,6 +1963,76 @@ def admin_users_page(current_user: sqlite3.Row) -> str:
     return admin_shell("Comptes administrateurs", content, "/admin/users")
 
 
+def robots_txt() -> str:
+    settings = read_settings()
+    return "\n".join(
+        [
+            "User-agent: *",
+            "Disallow: /admin",
+            "Disallow: /admin/",
+            "Allow: /",
+            f"Sitemap: {absolute_url('/sitemap.xml', settings)}",
+            "",
+        ]
+    )
+
+
+def sitemap_entry(
+    location: str,
+    settings: dict[str, str],
+    lastmod: str = "",
+    changefreq: str = "",
+    priority: str = "",
+) -> str:
+    parts = [f"    <loc>{e(absolute_url(location, settings))}</loc>"]
+    if lastmod:
+        parts.append(f"    <lastmod>{e(lastmod[:10])}</lastmod>")
+    if changefreq:
+        parts.append(f"    <changefreq>{e(changefreq)}</changefreq>")
+    if priority:
+        parts.append(f"    <priority>{e(priority)}</priority>")
+    return "  <url>\n" + "\n".join(parts) + "\n  </url>"
+
+
+def sitemap_xml() -> str:
+    settings = read_settings()
+    entries = [
+        sitemap_entry("/", settings, changefreq="weekly", priority="1.0"),
+        sitemap_entry("/agenda", settings, changefreq="weekly", priority="0.8"),
+        sitemap_entry("/articles", settings, changefreq="weekly", priority="0.8"),
+        sitemap_entry("/galerie", settings, changefreq="monthly", priority="0.7"),
+        sitemap_entry("/contact", settings, changefreq="yearly", priority="0.5"),
+        sitemap_entry("/mentions-legales", settings, changefreq="yearly", priority="0.3"),
+    ]
+    with connect() as conn:
+        articles = conn.execute(
+            "SELECT slug, updated_at FROM articles WHERE published = 1 ORDER BY updated_at DESC"
+        ).fetchall()
+        albums = conn.execute(
+            """
+            SELECT a.slug, MAX(p.created_at) AS updated_at
+            FROM photo_albums a
+            JOIN photos p ON p.album_id = a.id AND p.visibility IN ('gallery', 'both')
+            GROUP BY a.id
+            ORDER BY a.name
+            """
+        ).fetchall()
+    entries.extend(
+        sitemap_entry(f"/articles/{quote(row['slug'])}", settings, row["updated_at"], "monthly", "0.7")
+        for row in articles
+    )
+    entries.extend(
+        sitemap_entry(f"/galerie?album={quote(row['slug'])}", settings, row["updated_at"], "monthly", "0.5")
+        for row in albums
+    )
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        + "\n".join(entries)
+        + "\n</urlset>\n"
+    )
+
+
 def not_found_page() -> str:
     body = """
     <section class="page-hero compact-hero">
@@ -1306,7 +2042,7 @@ def not_found_page() -> str:
       <a class="button primary" href="/">Retour à l’accueil</a>
     </section>
     """
-    return layout("Page introuvable", body, "/")
+    return layout("Page introuvable", body, "/", indexable=False)
 
 
 def session_value(user_id: int) -> str:
@@ -1375,14 +2111,15 @@ def save_photo_upload(
     title: str = "",
     caption: str = "",
     visibility: str = "both",
+    album_id: int | None = None,
 ) -> str | None:
     if not upload or not upload.data or len(upload.data) > MAX_UPLOAD_BYTES:
         return None
     filename = safe_upload_name(upload.filename)
     (UPLOAD_DIR / filename).write_bytes(upload.data)
     conn.execute(
-        "INSERT INTO photos (filename, title, caption, visibility, created_at) VALUES (?, ?, ?, ?, ?)",
-        (filename, title, caption, normalize_photo_visibility(visibility), now_iso()),
+        "INSERT INTO photos (album_id, filename, title, caption, visibility, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        (album_id, filename, title, caption, normalize_photo_visibility(visibility), now_iso()),
     )
     return f"/static/uploads/{filename}"
 
@@ -1430,18 +2167,38 @@ def save_cropped_article_image(
 
 
 def send_contact_email(form: dict[str, str]) -> bool:
-    recipient = CONTACT_TO or read_settings().get("contact_email", "")
-    if not SMTP_HOST or not recipient:
+    settings = read_settings()
+    smtp_enabled = settings.get("smtp_enabled") == "1" or bool(os.getenv("VERT_TIGE_SMTP_HOST"))
+    host = os.getenv("VERT_TIGE_SMTP_HOST") or settings.get("smtp_host", "").strip()
+    recipient = CONTACT_TO or settings.get("smtp_to", "").strip() or settings.get("contact_email", "").strip()
+    if not smtp_enabled or not host or not recipient:
         return False
+
+    raw_port = os.getenv("VERT_TIGE_SMTP_PORT") or settings.get("smtp_port", "587")
+    try:
+        port = int(raw_port)
+    except ValueError:
+        write_log(f"Email non envoyé : port SMTP invalide ({raw_port}).")
+        return False
+    security = normalize_smtp_security(os.getenv("VERT_TIGE_SMTP_SECURITY") or settings.get("smtp_security"))
+    smtp_user = os.getenv("VERT_TIGE_SMTP_USER") or settings.get("smtp_user", "").strip()
+    smtp_password = os.getenv("VERT_TIGE_SMTP_PASSWORD") or settings.get("smtp_password", "")
+    smtp_from = (
+        os.getenv("VERT_TIGE_SMTP_FROM")
+        or settings.get("smtp_from", "").strip()
+        or smtp_user
+        or recipient
+    )
 
     message = EmailMessage()
     subject = form.get("subject", "").strip() or "Message depuis le site Vert-Tige"
     message["Subject"] = subject
-    message["From"] = SMTP_FROM
+    message["From"] = smtp_from
     message["To"] = recipient
     if form.get("email"):
         message["Reply-To"] = form["email"]
     message.set_content(
+        "Message reçu depuis le formulaire de contact du site Vert-Tige.\n\n"
         f"Nom : {form.get('name', '')}\n"
         f"Email : {form.get('email', '')}\n"
         f"Sujet : {subject}\n\n"
@@ -1449,13 +2206,21 @@ def send_contact_email(form: dict[str, str]) -> bool:
     )
 
     try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as smtp:
-            smtp.starttls()
-            if SMTP_USER:
-                smtp.login(SMTP_USER, SMTP_PASSWORD)
-            smtp.send_message(message)
+        if security == "ssl":
+            with smtplib.SMTP_SSL(host, port, timeout=10) as smtp:
+                if smtp_user:
+                    smtp.login(smtp_user, smtp_password)
+                smtp.send_message(message)
+        else:
+            with smtplib.SMTP(host, port, timeout=10) as smtp:
+                if security == "starttls":
+                    smtp.starttls()
+                if smtp_user:
+                    smtp.login(smtp_user, smtp_password)
+                smtp.send_message(message)
         return True
-    except OSError:
+    except (OSError, smtplib.SMTPException) as exc:
+        write_log(f"Email non envoyé : {exc}")
         return False
 
 
@@ -1473,16 +2238,24 @@ class VertTigeHandler(BaseHTTPRequestHandler):
 
         if path == "/":
             self.respond_html(home_page())
+        elif path == "/robots.txt":
+            self.respond_text(robots_txt(), content_type="text/plain; charset=utf-8")
+        elif path == "/sitemap.xml":
+            self.respond_text(sitemap_xml(), content_type="application/xml; charset=utf-8")
         elif path == "/agenda":
             self.respond_html(agenda_page(query))
         elif path == "/articles":
-            self.respond_html(articles_page())
+            self.respond_html(articles_page(query))
         elif path.startswith("/articles/"):
             self.respond_html(article_page(unquote(path.removeprefix("/articles/"))))
         elif path == "/galerie":
-            self.respond_html(gallery_page())
+            self.respond_html(gallery_page(query))
         elif path == "/contact":
-            self.respond_html(contact_page(sent=query.get("sent") == ["1"]))
+            self.respond_html(
+                contact_page(sent=query.get("sent") == ["1"], saved=query.get("saved") == ["1"])
+            )
+        elif path == "/mentions-legales":
+            self.respond_html(legal_page())
         elif path == "/admin/login":
             self.respond_html(login_page(error=query.get("error") == ["1"]))
         elif path == "/admin/logout":
@@ -1558,12 +2331,20 @@ class VertTigeHandler(BaseHTTPRequestHandler):
             self.save_article(int(match.group(1)))
         elif match := re.fullmatch(r"/admin/articles/(\d+)/delete", path):
             self.delete_row("articles", int(match.group(1)), "/admin/articles")
+        elif path == "/admin/photos/albums/create":
+            self.create_photo_album()
+        elif match := re.fullmatch(r"/admin/photos/albums/(\d+)/delete", path):
+            self.delete_photo_album(int(match.group(1)))
         elif path == "/admin/photos/upload":
             self.upload_photo()
         elif match := re.fullmatch(r"/admin/photos/(\d+)/visibility", path):
             self.update_photo_visibility(int(match.group(1)))
         elif match := re.fullmatch(r"/admin/photos/(\d+)/delete", path):
             self.delete_photo(int(match.group(1)))
+        elif path == "/admin/messages/settings":
+            self.save_messaging_settings()
+        elif match := re.fullmatch(r"/admin/messages/(\d+)/delete", path):
+            self.delete_message(int(match.group(1)))
         elif match := re.fullmatch(r"/admin/messages/(\d+)/toggle", path):
             self.toggle_message(int(match.group(1)))
         elif path == "/admin/users/create":
@@ -1597,11 +2378,31 @@ class VertTigeHandler(BaseHTTPRequestHandler):
 
     def save_home(self) -> None:
         form, files = self.read_form()
-        allowed = ["site_title", "tagline", "contact_email", "home_intro", "logo_url"]
-        if form.get("contact_email") and not valid_email(form.get("contact_email", "").strip()):
+        allowed = [
+            "site_title",
+            "tagline",
+            "home_intro",
+            "logo_url",
+            "facebook_url",
+            "instagram_url",
+            "legal_publisher",
+            "legal_responsible",
+            "legal_hosting",
+            "legal_text",
+            "google_ads_id",
+            "google_ads_conversion_label",
+            "site_url",
+            "seo_description",
+            "google_site_verification",
+        ]
+        if not valid_optional_url(form.get("facebook_url", "").strip()) or not valid_optional_url(form.get("instagram_url", "").strip()):
             self.redirect("/admin/home")
             return
-        current_logo = read_settings().get("logo_url", "")
+        if not valid_optional_url(form.get("site_url", "").strip()):
+            self.redirect("/admin/home")
+            return
+        current_settings = read_settings()
+        current_logo = current_settings.get("logo_url", "")
         logo_url = "" if form.get("remove_logo") == "1" else current_logo
         logo_file = files.get("logo_file")
         if logo_file and logo_file.data:
@@ -1613,13 +2414,64 @@ class VertTigeHandler(BaseHTTPRequestHandler):
                 logo_url = uploaded_logo
         with connect() as conn:
             for key in allowed:
-                value = logo_url if key == "logo_url" else form.get(key, "").strip()
+                if key == "logo_url":
+                    value = logo_url
+                else:
+                    value = form.get(key, "").strip()
                 conn.execute(
                     "INSERT INTO settings (key, value) VALUES (?, ?) "
                     "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
                     (key, value),
                 )
         self.redirect("/admin/home")
+
+    def save_messaging_settings(self) -> None:
+        form, _ = self.read_form()
+        allowed = [
+            "contact_email",
+            "smtp_enabled",
+            "smtp_host",
+            "smtp_port",
+            "smtp_security",
+            "smtp_user",
+            "smtp_password",
+            "smtp_from",
+            "smtp_to",
+        ]
+        contact_email = form.get("contact_email", "").strip()
+        if contact_email and not valid_email(contact_email):
+            self.redirect("/admin/messages")
+            return
+        if form.get("smtp_enabled") == "1":
+            smtp_to = form.get("smtp_to", "").strip()
+            smtp_from = form.get("smtp_from", "").strip()
+            smtp_port = form.get("smtp_port", "").strip()
+            if (
+                not form.get("smtp_host", "").strip()
+                or not smtp_to
+                or not valid_email(smtp_to)
+                or (smtp_from and not valid_email(smtp_from))
+                or not valid_port(smtp_port)
+            ):
+                self.redirect("/admin/messages")
+                return
+        current_settings = read_settings()
+        with connect() as conn:
+            for key in allowed:
+                if key == "smtp_enabled":
+                    value = "1" if form.get("smtp_enabled") == "1" else ""
+                elif key == "smtp_security":
+                    value = normalize_smtp_security(form.get("smtp_security"))
+                elif key == "smtp_password" and not form.get("smtp_password", ""):
+                    value = current_settings.get("smtp_password", "")
+                else:
+                    value = form.get(key, "").strip()
+                conn.execute(
+                    "INSERT INTO settings (key, value) VALUES (?, ?) "
+                    "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                    (key, value),
+                )
+        self.redirect("/admin/messages")
 
     def save_event(self, event_id: int | None = None) -> None:
         form, _ = self.read_form()
@@ -1754,6 +2606,7 @@ class VertTigeHandler(BaseHTTPRequestHandler):
                         form.get("title", "").strip(),
                         form.get("caption", "").strip(),
                         normalize_photo_visibility(form.get("visibility"), default="gallery"),
+                        int_or_none(form.get("album_id")),
                     )
             except ValueError:
                 self.redirect("/admin/photos")
@@ -1763,11 +2616,45 @@ class VertTigeHandler(BaseHTTPRequestHandler):
     def update_photo_visibility(self, photo_id: int) -> None:
         form, _ = self.read_form()
         visibility = normalize_photo_visibility(form.get("visibility"))
+        album_id = int_or_none(form.get("album_id"))
         with connect() as conn:
             conn.execute(
-                "UPDATE photos SET visibility = ? WHERE id = ?",
-                (visibility, photo_id),
+                "UPDATE photos SET visibility = ?, album_id = ? WHERE id = ?",
+                (visibility, album_id, photo_id),
             )
+        self.redirect("/admin/photos")
+
+    def create_photo_album(self) -> None:
+        form, _ = self.read_form()
+        name = form.get("name", "").strip()
+        if not name:
+            self.redirect("/admin/photos")
+            return
+        with connect() as conn:
+            slug = unique_album_slug(conn, name)
+            try:
+                conn.execute(
+                    "INSERT INTO photo_albums (name, slug, description, created_at) VALUES (?, ?, ?, ?)",
+                    (name, slug, form.get("description", "").strip(), now_iso()),
+                )
+            except sqlite3.IntegrityError:
+                pass
+        self.redirect("/admin/photos")
+
+    def delete_photo_album(self, album_id: int) -> None:
+        with connect() as conn:
+            default_album = conn.execute(
+                "SELECT id FROM photo_albums WHERE id != ? ORDER BY id LIMIT 1",
+                (album_id,),
+            ).fetchone()
+            if default_album is None:
+                self.redirect("/admin/photos")
+                return
+            conn.execute(
+                "UPDATE photos SET album_id = ? WHERE album_id = ?",
+                (default_album["id"], album_id),
+            )
+            conn.execute("DELETE FROM photo_albums WHERE id = ?", (album_id,))
         self.redirect("/admin/photos")
 
     def handle_contact(self) -> None:
@@ -1792,8 +2679,8 @@ class VertTigeHandler(BaseHTTPRequestHandler):
                     now_iso(),
                 ),
             )
-        send_contact_email(form)
-        self.redirect("/contact?sent=1")
+        email_sent = send_contact_email(form)
+        self.redirect("/contact?sent=1" if email_sent else "/contact?saved=1")
 
     def handle_login(self) -> None:
         form, _ = self.read_form()
@@ -1855,6 +2742,11 @@ class VertTigeHandler(BaseHTTPRequestHandler):
                 "UPDATE messages SET handled = CASE handled WHEN 1 THEN 0 ELSE 1 END WHERE id = ?",
                 (message_id,),
             )
+        self.redirect("/admin/messages")
+
+    def delete_message(self, message_id: int) -> None:
+        with connect() as conn:
+            conn.execute("DELETE FROM messages WHERE id = ? AND handled = 1", (message_id,))
         self.redirect("/admin/messages")
 
     def create_admin_user(self) -> None:
@@ -1951,6 +2843,8 @@ class VertTigeHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def respond_html(self, content: str, status: int = 200) -> None:
+        nonce = base64.b64encode(secrets.token_bytes(16)).decode("ascii")
+        content = content.replace(CSP_NONCE_PLACEHOLDER, nonce)
         data = content.encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -1958,8 +2852,21 @@ class VertTigeHandler(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header(
             "Content-Security-Policy",
-            "default-src 'self'; img-src 'self' data:; style-src 'self'; form-action 'self'",
+            "default-src 'self'; "
+            f"script-src 'self' 'nonce-{nonce}' https://www.googletagmanager.com; "
+            "connect-src 'self' https://www.google-analytics.com https://www.googletagmanager.com https://googleads.g.doubleclick.net; "
+            "img-src 'self' data: https://www.google.com https://www.google.fr https://googleads.g.doubleclick.net; "
+            "style-src 'self'; form-action 'self'",
         )
+        self.end_headers()
+        self.wfile.write(data)
+
+    def respond_text(self, content: str, status: int = 200, content_type: str = "text/plain; charset=utf-8") -> None:
+        data = content.encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
         self.wfile.write(data)
 

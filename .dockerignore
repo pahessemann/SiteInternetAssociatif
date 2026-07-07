@@ -1,0 +1,9 @@
+.git
+.idea
+__pycache__/
+*.pyc
+.env
+data/
+static/uploads/*
+server*.log
+.tools/

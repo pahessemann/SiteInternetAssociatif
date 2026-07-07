@@ -108,6 +108,68 @@ $env:VERT_TIGE_SMTP_FROM="site@exemple.fr"
 python app.py
 ```
 
+## Deploiement HTTPS avec Docker, Traefik et Let's Encrypt
+
+Prerequis sur le serveur :
+
+- Docker et Docker Compose installes ;
+- le nom de domaine pointe vers l'adresse IP publique du serveur ;
+- les ports `80` et `443` sont ouverts depuis Internet.
+
+La configuration est separee en deux parties :
+
+- `infra/traefik/docker.compose.yaml` gere Traefik, la redirection `80` vers
+  `443`, les certificats Let's Encrypt et leur renouvellement ;
+- `docker.compose.yaml` gere le site : un frontend Nginx sur le port interne
+  `80` pour `/static/`, et le backend Python derriere lui.
+
+Preparer la configuration :
+
+```bash
+cp .env.example .env
+```
+
+Modifier ensuite `.env` avec le domaine reel, l'email Let's Encrypt, un mot de
+passe administrateur fort et une valeur aleatoire longue pour
+`VERT_TIGE_SECRET`.
+
+Exemple pour generer un secret :
+
+```bash
+openssl rand -hex 32
+```
+
+Demarrer d'abord l'infrastructure HTTPS :
+
+```bash
+docker compose --env-file .env -f infra/traefik/docker.compose.yaml up -d
+```
+
+Demarrer ensuite le site :
+
+```bash
+docker compose --env-file .env -f docker.compose.yaml up -d --build
+```
+
+Traefik ecoute sur `80` et `443`, redirige HTTP vers HTTPS, demande
+automatiquement un certificat Let's Encrypt pour `DOMAIN`, puis relaie le trafic
+HTTPS vers le frontend Nginx. Les certificats sont conserves dans le volume
+Docker `traefik-letsencrypt`, separe du volume applicatif.
+
+Commandes utiles :
+
+```bash
+docker compose --env-file .env -f infra/traefik/docker.compose.yaml logs -f traefik
+docker compose --env-file .env -f docker.compose.yaml logs -f frontend
+docker compose --env-file .env -f docker.compose.yaml logs -f backend
+docker compose --env-file .env -f docker.compose.yaml ps
+```
+
+Les donnees persistantes restent dans :
+
+- `data/` pour la base SQLite ;
+- `static/uploads/` pour les images envoyees depuis l'administration.
+
 ## Suite
 
 - brancher un hebergement et un nom de domaine ;

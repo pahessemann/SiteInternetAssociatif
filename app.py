@@ -35,6 +35,7 @@ CSP_NONCE_PLACEHOLDER = "__VERT_TIGE_CSP_NONCE__"
 
 HOST = os.getenv("VERT_TIGE_HOST", "127.0.0.1")
 PORT = int(os.getenv("VERT_TIGE_PORT", "8000"))
+PUBLIC_URL = os.getenv("VERT_TIGE_PUBLIC_URL", "").strip().rstrip("/")
 ADMIN_PASSWORD = os.getenv("VERT_TIGE_ADMIN_PASSWORD", "jardin")
 SESSION_SECRET = os.getenv("VERT_TIGE_SECRET", "change-this-secret-before-production")
 SESSION_COOKIE = "vert_tige_session"
@@ -488,10 +489,17 @@ def contact_message_by_token(token: str) -> sqlite3.Row | None:
 
 
 def public_base_url(settings: dict[str, str]) -> str:
+    if PUBLIC_URL:
+        return PUBLIC_URL
     configured = (settings.get("site_url") or "").strip().rstrip("/")
     if configured:
         return configured
     return f"http://{HOST}:{PORT}"
+
+
+def session_cookie_header(value: str, max_age: int) -> str:
+    secure = "; Secure" if PUBLIC_URL.startswith("https://") else ""
+    return f"{SESSION_COOKIE}={value}; Path=/; HttpOnly; SameSite=Lax{secure}; Max-Age={max_age}"
 
 
 def absolute_url(path_or_url: str | None, settings: dict[str, str]) -> str:
@@ -2697,7 +2705,7 @@ class VertTigeHandler(BaseHTTPRequestHandler):
             self.send_header("Location", "/admin")
             self.send_header(
                 "Set-Cookie",
-                f"{SESSION_COOKIE}={session_value(user['id'])}; Path=/; HttpOnly; SameSite=Lax; Max-Age={SESSION_MAX_AGE_SECONDS}",
+                session_cookie_header(session_value(user["id"]), SESSION_MAX_AGE_SECONDS),
             )
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
@@ -2710,7 +2718,7 @@ class VertTigeHandler(BaseHTTPRequestHandler):
         self.send_header("Location", "/")
         self.send_header(
             "Set-Cookie",
-            f"{SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
+            session_cookie_header("", 0),
         )
         self.end_headers()
 

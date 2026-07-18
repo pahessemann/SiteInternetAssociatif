@@ -13,7 +13,7 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=traefik-public
-      - traefik.http.routers.vert-tige.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.vert-tige.rule=Host(`jardin-vert-tige.fr`) || Host(`www.jardin-vert-tige.fr`)
       - traefik.http.routers.vert-tige.entrypoints=websecure
       - traefik.http.routers.vert-tige.tls=true
       - traefik.http.routers.vert-tige.tls.certresolver=letsencrypt

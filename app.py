@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from email.parser import BytesParser
 from email.policy import default as email_policy
+from html.parser import HTMLParser
 from http import cookies
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -70,23 +71,74 @@ PHOTO_VISIBILITY_LABELS = {
     "both": "Galerie + articles",
 }
 
+OLD_HOME_INTRO = (
+    "Vert-Tige est un jardin partagé du 14e arrondissement : un lieu pour "
+    "cultiver, transmettre, bricoler, composter et créer des rencontres de quartier."
+)
+NEW_HOME_INTRO = "Échanger, apprendre, transmettre, animer, protéger"
+HOME_DESCRIPTION_SIZES = {
+    "small": "Petite",
+    "normal": "Normale",
+    "large": "Grande",
+    "xlarge": "Très grande",
+}
+RICH_TEXT_SIZE_CLASSES = {f"text-size-{size}" for size in HOME_DESCRIPTION_SIZES}
+
 DEFAULT_SETTINGS = {
     "site_title": "Vert-Tige",
     "tagline": "Jardin partagé à Paris 14",
-    "home_intro": (
-        "Vert-Tige est un jardin partagé du 14e arrondissement : un lieu pour "
-        "cultiver, transmettre, bricoler, composter et créer des rencontres de quartier."
-    ),
+    "home_intro": NEW_HOME_INTRO,
+    "home_about_text": OLD_HOME_INTRO,
+    "home_image_url": "/static/hero-garden.png",
+    "home_hero_eyebrow": "Jardin partagé · Paris 14",
+    "home_primary_button_label": "Voir l’agenda",
+    "home_secondary_button_label": "Contacter l’association",
+    "home_about_eyebrow": "Association de quartier",
+    "home_about_title": "Un site pour faire vivre le jardin entre deux permanences",
+    "home_events_eyebrow": "Prochains rendez-vous",
+    "home_events_title": "Agenda du jardin",
+    "home_events_link_label": "Tout voir",
+    "home_events_empty": "Aucun rendez-vous à venir pour le moment.",
+    "home_articles_eyebrow": "Carnet de bord",
+    "home_articles_title": "Articles mis en avant",
+    "home_articles_link_label": "Tous les articles",
+    "home_articles_empty": "Les articles mis en avant apparaîtront ici.",
+    "home_photos_eyebrow": "Banque de photos",
+    "home_photos_title": "Images du jardin",
+    "home_photos_link_label": "Ouvrir la galerie",
+    "home_photos_empty_title": "La galerie est prête",
+    "home_photos_empty_text": "Les premières photos ajoutées depuis l’administration apparaîtront ici.",
     "contact_email": "contact@vert-tige.local",
     "logo_url": "",
     "facebook_url": "",
     "instagram_url": "",
+    "footer_address": "37, rue de Coulmiers – 75014 Paris",
+    "footer_copyright": "Copyright ©2026 Jardin Vert-Tige",
+    "instagram_banner_text": "RETROUVEZ LE JARDIN VERT-TIGE SUR INSTAGRAM",
+    "instagram_banner_image_url": "/static/hero-garden.png",
+    "practical_eyebrow": "Infos pratiques",
+    "practical_title": "Venir au jardin Vert-Tige",
+    "practical_intro": "Adresse, transports et horaires utiles pour rejoindre le jardin partagé.",
+    "practical_address": "37 rue de Coulmiers, 75014 Paris",
+    "practical_map_embed_url": (
+        "https://www.openstreetmap.org/export/embed.html?"
+        "bbox=2.3197%2C48.8224%2C2.3318%2C48.8296&layer=mapnik&marker=48.8260%2C2.3256"
+    ),
+    "practical_map_link_url": "https://www.openstreetmap.org/search?query=37%20rue%20de%20Coulmiers%2075014%20Paris",
+    "practical_bus": "Bus 38, 92 : Porte d’Orléans",
+    "practical_metro": "Métro : Ligne 4, Porte d’Orléans ou Alésia",
+    "practical_tram": "Tram : T3a, Jean Moulin ou Porte d’Orléans",
+    "practical_velib": "Station Vélib : rue Auguste Cain",
+    "practical_opening": "Jours fériés, samedis et dimanches : de 15 h à 18 h, selon les disponibilités des bénévoles.",
     "legal_publisher": "Association Vert-Tige",
     "legal_responsible": "",
     "legal_hosting": "",
     "legal_text": "",
+    "terms_text": "",
     "google_ads_id": "",
     "google_ads_conversion_label": "",
+    "analytics_provider": "",
+    "analytics_site_id": "",
     "site_url": "",
     "seo_description": (
         "Vert-Tige est un jardin partagé associatif du 14e arrondissement de Paris, "
@@ -170,6 +222,114 @@ def paragraphs(value: str | None) -> str:
     return "".join(f"<p>{e(block).replace(chr(10), '<br>')}</p>" for block in blocks)
 
 
+def rich_text_has_markup(value: str | None) -> bool:
+    return bool(re.search(r"</?(p|div|br|strong|b|em|i|u|span)\b", value or "", re.IGNORECASE))
+
+
+class RichTextSanitizer(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+        self.open_tags: list[str] = []
+        self.skip_depth = 0
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        tag = tag.lower()
+        if tag in {"script", "style", "iframe", "object", "embed"}:
+            self.skip_depth += 1
+            return
+        if self.skip_depth:
+            return
+        if tag in {"p", "div"}:
+            self.parts.append("<p>")
+            self.open_tags.append("p")
+        elif tag == "br":
+            self.parts.append("<br>")
+        elif tag in {"strong", "b"}:
+            self.parts.append("<strong>")
+            self.open_tags.append("strong")
+        elif tag in {"em", "i"}:
+            self.parts.append("<em>")
+            self.open_tags.append("em")
+        elif tag == "u":
+            self.parts.append("<u>")
+            self.open_tags.append("u")
+        elif tag == "span":
+            class_value = " ".join(value or "" for name, value in attrs if name.lower() == "class")
+            class_name = next((item for item in class_value.split() if item in RICH_TEXT_SIZE_CLASSES), "")
+            if class_name:
+                self.parts.append(f'<span class="{e(class_name)}">')
+                self.open_tags.append("span")
+
+    def handle_endtag(self, tag: str) -> None:
+        tag = tag.lower()
+        if tag in {"script", "style", "iframe", "object", "embed"}:
+            self.skip_depth = max(0, self.skip_depth - 1)
+            return
+        if self.skip_depth:
+            return
+        output_tag = {
+            "div": "p",
+            "p": "p",
+            "b": "strong",
+            "strong": "strong",
+            "i": "em",
+            "em": "em",
+            "u": "u",
+            "span": "span",
+        }.get(tag)
+        if not output_tag or output_tag not in self.open_tags:
+            return
+        while self.open_tags:
+            current = self.open_tags.pop()
+            self.parts.append(f"</{current}>")
+            if current == output_tag:
+                break
+
+    def handle_data(self, data: str) -> None:
+        if self.skip_depth:
+            return
+        self.parts.append(e(data))
+
+    def get_html(self) -> str:
+        while self.open_tags:
+            self.parts.append(f"</{self.open_tags.pop()}>")
+        cleaned = "".join(self.parts)
+        cleaned = re.sub(r"<p>(?:\s|<br>)*</p>", "", cleaned)
+        return cleaned.strip()
+
+
+def sanitize_rich_text(value: str | None) -> str:
+    parser = RichTextSanitizer()
+    parser.feed(value or "")
+    parser.close()
+    return parser.get_html()
+
+
+def render_home_description(value: str | None) -> str:
+    if rich_text_has_markup(value):
+        return sanitize_rich_text(value)
+    return paragraphs(value)
+
+
+def editor_home_description(value: str | None) -> str:
+    content = render_home_description(value)
+    return content or "<p><br></p>"
+
+
+def rich_text_size_options() -> str:
+    options = ['<option value="">Taille...</option>']
+    options.extend(
+        f'<option value="{e(size)}">{e(label)}</option>'
+        for size, label in HOME_DESCRIPTION_SIZES.items()
+    )
+    return "".join(options)
+
+
+def text_content(value: str | None) -> str:
+    return html.unescape(re.sub(r"<[^>]*>", " ", value or ""))
+
+
 def format_date(value: str | None) -> str:
     if not value:
         return ""
@@ -198,6 +358,16 @@ def valid_optional_url(value: str) -> bool:
     if not value:
         return True
     return bool(re.fullmatch(r"https://[^\s]+", value))
+
+
+def setting_enabled(settings: dict[str, str], key: str, default: bool = True) -> bool:
+    value = settings.get(key)
+    if value is None:
+        return default
+    text = str(value).strip().lower()
+    if not text:
+        return False
+    return text not in {"0", "false", "non", "no", "off"}
 
 
 def valid_iso_date(value: str) -> bool:
@@ -282,6 +452,30 @@ def album_options(rows: list[sqlite3.Row], selected_id: int | None = None) -> st
     )
 
 
+def photo_library_options(rows: list[sqlite3.Row], selected_url: str = "") -> str:
+    options = []
+    for row in rows:
+        image_url = f"/static/uploads/{row['filename']}"
+        selected = "selected" if selected_url == image_url else ""
+        album = f" · {row['album_name']}" if row["album_name"] else ""
+        label = f"{row['title'] or row['filename']}{album} · {photo_visibility_label(row['visibility'])}"
+        options.append(f'<option value="{e(image_url)}" {selected}>{e(label)}</option>')
+    return "".join(options)
+
+
+def existing_photo_upload_url(value: str | None) -> str:
+    image_url = (value or "").strip()
+    prefix = "/static/uploads/"
+    if not image_url.startswith(prefix):
+        return ""
+    filename = image_url.removeprefix(prefix)
+    if not filename or "/" in filename or "\\" in filename:
+        return ""
+    with connect() as conn:
+        row = conn.execute("SELECT id FROM photos WHERE filename = ?", (filename,)).fetchone()
+    return image_url if row else ""
+
+
 def calendar_event_chip(row: sqlite3.Row) -> str:
     time_text = format_time(row["start_time"])
     time_html = f"<span>{e(time_text)}</span>" if time_text else ""
@@ -359,9 +553,9 @@ def versioned_static_url(path: str) -> str:
 
 
 def compact_text(value: str | None, fallback: str = "", limit: int = 170) -> str:
-    text = re.sub(r"\s+", " ", value or "").strip()
+    text = re.sub(r"\s+", " ", text_content(value)).strip()
     if not text:
-        text = re.sub(r"\s+", " ", fallback or "").strip()
+        text = re.sub(r"\s+", " ", text_content(fallback)).strip()
     if len(text) <= limit:
         return text
     return text[: limit - 1].rsplit(" ", 1)[0].rstrip(".,;:") + "…"
@@ -535,6 +729,14 @@ def organization_schema(settings: dict[str, str]) -> dict[str, object]:
     }
     if settings.get("contact_email"):
         schema["email"] = settings["contact_email"]
+    if settings.get("practical_address"):
+        schema["address"] = {
+            "@type": "PostalAddress",
+            "streetAddress": "37 rue de Coulmiers",
+            "postalCode": "75014",
+            "addressLocality": "Paris",
+            "addressCountry": "FR",
+        }
     logo = settings.get("logo_url") or settings.get("seo_image_url")
     if logo:
         schema["logo"] = absolute_url(logo, settings)
@@ -555,6 +757,11 @@ def website_schema(settings: dict[str, str]) -> dict[str, object]:
         "name": settings["site_title"],
         "url": public_base_url(settings),
         "description": compact_text(settings.get("seo_description"), settings.get("home_intro")),
+        "potentialAction": {
+            "@type": "SearchAction",
+            "target": absolute_url("/articles?q={search_term_string}", settings),
+            "query-input": "required name=search_term_string",
+        },
     }
 
 
@@ -815,6 +1022,14 @@ def init_db() -> None:
                 "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
                 (key, value),
             )
+        conn.execute(
+            "UPDATE settings SET value = ? WHERE key = 'home_intro' AND value = ?",
+            (NEW_HOME_INTRO, OLD_HOME_INTRO),
+        )
+        conn.execute(
+            "UPDATE settings SET value = ? WHERE key = 'footer_address' AND value = ?",
+            ("37, rue de Coulmiers – 75014 Paris", "37, rue de Coulmiers – 75104 Paris"),
+        )
 
         article_count = conn.execute("SELECT COUNT(*) AS count FROM articles").fetchone()["count"]
         if article_count == 0:
@@ -915,11 +1130,52 @@ def social_icon_link(url: str, label: str, path: str, service: str) -> str:
     """
 
 
+def instagram_footer_banner(settings: dict[str, str]) -> str:
+    instagram_url = settings.get("instagram_url", "").strip()
+    image_url = settings.get("instagram_banner_image_url") or settings.get("home_image_url") or "/static/hero-garden.png"
+    text = settings.get("instagram_banner_text") or "RETROUVEZ LE JARDIN VERT-TIGE SUR INSTAGRAM"
+    content = f"""
+      <div class="instagram-banner-copy">
+        <small>Instagram</small>
+        <strong>{e(text)}</strong>
+      </div>
+      <figure class="instagram-banner-photo">
+        <img src="{e(image_url)}" alt="">
+      </figure>
+    """
+    if instagram_url:
+        frame = f"""
+    <a class="instagram-banner-frame" href="{e(instagram_url)}" target="_blank" rel="noopener noreferrer" aria-label="Retrouvez le jardin Vert-Tige sur Instagram">
+      {content}
+    </a>
+        """
+    else:
+        frame = f"""
+    <div class="instagram-banner-frame" aria-label="Instagram Vert-Tige">
+      {content}
+    </div>
+        """
+    return f"""
+  <section class="instagram-footer-banner" aria-label="Instagram Vert-Tige">
+    {frame}
+  </section>
+    """
+
+
 def google_ads_head(settings: dict[str, str], track_conversion: bool) -> str:
     ads_id = settings.get("google_ads_id", "").strip()
-    if not ads_id:
-        return ""
     conversion_label = settings.get("google_ads_conversion_label", "").strip()
+    analytics_provider = settings.get("analytics_provider", "").strip()
+    analytics_site_id = settings.get("analytics_site_id", "").strip()
+    analytics_meta = (
+        f"""
+  <meta name="analytics-provider" content="{e(analytics_provider)}">
+  <meta name="analytics-site-id" content="{e(analytics_site_id)}">"""
+        if analytics_provider and analytics_site_id
+        else ""
+    )
+    if not ads_id:
+        return analytics_meta
     conversion_meta = (
         '<meta name="google-ads-conversion" content="contact">'
         if track_conversion and conversion_label
@@ -929,8 +1185,22 @@ def google_ads_head(settings: dict[str, str], track_conversion: bool) -> str:
   <meta name="google-ads-id" content="{e(ads_id)}">
   <meta name="google-ads-conversion-label" content="{e(conversion_label)}">
   {conversion_meta}
-  <script async src="https://www.googletagmanager.com/gtag/js?id={e(ads_id)}"></script>
-  <script src="/static/google-ads.js" defer></script>"""
+  {analytics_meta}"""
+
+
+def cookie_consent_html() -> str:
+    return """
+  <div class="cookie-banner" data-cookie-banner hidden>
+    <div>
+      <strong>Gestion des cookies</strong>
+      <p>Le site utilise uniquement les éléments nécessaires par défaut. Les statistiques, la publicité et les contenus externes ne sont activés qu’avec ton accord.</p>
+    </div>
+    <div class="cookie-actions">
+      <button class="button secondary" type="button" data-cookie-refuse>Tout refuser</button>
+      <button class="button primary" type="button" data-cookie-accept>Tout accepter</button>
+    </div>
+  </div>
+    """
 
 
 def layout(
@@ -949,12 +1219,24 @@ def layout(
     logo_url = settings.get("logo_url", "")
     stylesheet_url = versioned_static_url("/static/styles.css")
     editor_url = versioned_static_url("/static/article-editor.js")
+    privacy_url = versioned_static_url("/static/privacy.js")
+    favicon_url = settings.get("logo_url") or "/static/favicon.svg"
     facebook_path = "M22 12.06C22 6.49 17.52 2 11.94 2S2 6.49 2 12.06c0 5.02 3.66 9.19 8.44 9.94v-7.03H7.9v-2.91h2.54V9.85c0-2.51 1.49-3.9 3.77-3.9 1.09 0 2.23.2 2.23.2v2.46h-1.25c-1.24 0-1.63.77-1.63 1.56v1.89h2.78l-.44 2.91h-2.34V22c4.78-.75 8.44-4.92 8.44-9.94z"
     instagram_path = "M7.7 2h8.6A5.7 5.7 0 0 1 22 7.7v8.6a5.7 5.7 0 0 1-5.7 5.7H7.7A5.7 5.7 0 0 1 2 16.3V7.7A5.7 5.7 0 0 1 7.7 2zm0 2A3.7 3.7 0 0 0 4 7.7v8.6A3.7 3.7 0 0 0 7.7 20h8.6a3.7 3.7 0 0 0 3.7-3.7V7.7A3.7 3.7 0 0 0 16.3 4H7.7zm4.3 3.35A4.65 4.65 0 1 1 7.35 12 4.65 4.65 0 0 1 12 7.35zm0 2A2.65 2.65 0 1 0 14.65 12 2.65 2.65 0 0 0 12 9.35zm5.03-2.2a1.08 1.08 0 1 1-1.08 1.08 1.08 1.08 0 0 1 1.08-1.08z"
+    gear_path = "M19.43 12.98c.04-.32.07-.65.07-.98s-.02-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46a.5.5 0 0 0-.61-.22l-2.49 1a7.28 7.28 0 0 0-1.69-.98L14.5 2.42A.5.5 0 0 0 14 2h-4a.5.5 0 0 0-.5.42L9.12 5.07c-.6.24-1.16.56-1.69.98l-2.49-1a.5.5 0 0 0-.61.22l-2 3.46c-.12.22-.07.49.12.64l2.11 1.65c-.04.32-.06.65-.06.98s.02.66.06.98l-2.11 1.65a.5.5 0 0 0-.12.64l2 3.46c.13.22.39.31.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.38-2.65c.6-.25 1.17-.58 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46a.5.5 0 0 0-.12-.64l-2.12-1.65zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5z"
     social_links = (
         social_icon_link(settings.get("facebook_url", ""), "Facebook", facebook_path, "facebook")
         + social_icon_link(settings.get("instagram_url", ""), "Instagram", instagram_path, "instagram")
     )
+    show_instagram_banner = current_path == "/" or current_path.startswith("/galerie")
+    instagram_banner = instagram_footer_banner(settings) if show_instagram_banner else ""
+    cookie_controls = "" if current_path.startswith("/admin") else cookie_consent_html()
+    cookie_footer_button = (
+        ""
+        if current_path.startswith("/admin")
+        else '<button class="footer-cookie-link" type="button" data-cookie-open>Gestion des cookies</button>'
+    )
+    tracking_head = "" if current_path.startswith("/admin") else google_ads_head(settings, track_conversion)
     brand_mark = (
         f'<img class="brand-logo" src="{e(logo_url)}" alt="">'
         if logo_url
@@ -966,6 +1248,7 @@ def layout(
             nav_link("/agenda", "Agenda", current_path),
             nav_link("/articles", "Articles", current_path),
             nav_link("/galerie", "Photos", current_path),
+            nav_link("/infos-pratiques", "Infos pratiques", current_path),
             nav_link("/contact", "Contact", current_path),
         ]
     )
@@ -976,9 +1259,11 @@ def layout(
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{e(page_title(title, settings))}</title>
   {seo_head(settings, title, current_path, description, image_url, og_type, structured_data, indexable)}
+  <link rel="icon" href="{e(favicon_url)}">
   <link rel="stylesheet" href="{e(stylesheet_url)}">
   <script src="{e(editor_url)}" defer></script>
-  {google_ads_head(settings, track_conversion)}
+  <script src="{e(privacy_url)}" defer></script>
+  {tracking_head}
 </head>
 <body>
   <header class="site-header">
@@ -989,17 +1274,25 @@ def layout(
     <nav class="main-nav" aria-label="Navigation principale">{nav}</nav>
   </header>
   <main>{body}</main>
+  {instagram_banner}
   <footer class="site-footer">
-    <div>
-      <strong>{e(site_title)}</strong>
-      <span>{e(settings["tagline"])}</span>
+    <div class="footer-address">
+      <strong>{e(settings.get("footer_address") or "37, rue de Coulmiers – 75104 Paris")}</strong>
     </div>
-    <div class="footer-social">{social_links}</div>
+    <div class="footer-center">
+      <div class="footer-social">{social_links}</div>
+      <span>{e(settings.get("footer_copyright") or "Copyright ©2026 Jardin Vert-Tige")}</span>
+    </div>
     <div class="footer-links">
       <a href="/mentions-legales">Mentions légales</a>
-      <a href="/admin">Administration</a>
+      <a href="/conditions-generales-utilisation">Conditions générales d’utilisation</a>
+      {cookie_footer_button}
+      <a class="footer-admin-link" href="/admin" aria-label="Paramètres du site" title="Paramètres du site">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="{gear_path}"></path></svg>
+      </a>
     </div>
   </footer>
+  {cookie_controls}
 </body>
 </html>"""
 
@@ -1047,44 +1340,51 @@ def home_page() -> str:
             "SELECT * FROM photos WHERE visibility IN ('gallery', 'both') ORDER BY created_at DESC LIMIT 6"
         ).fetchall()
 
-    event_html = "".join(event_card(row) for row in events) or empty_state(
-        "Aucun rendez-vous à venir pour le moment."
-    )
-    article_html = "".join(article_card(row) for row in articles) or empty_state(
-        "Les articles mis en avant apparaîtront ici."
-    )
-    photo_html = render_photo_strip(photos)
+    home_image = settings.get("home_image_url") or "/static/hero-garden.png"
+    event_html = "".join(event_card(row) for row in events) or empty_state(settings["home_events_empty"])
+    article_html = "".join(article_card(row) for row in articles) or empty_state(settings["home_articles_empty"])
+    photo_html = render_photo_strip(photos, settings)
+    about_text = settings.get("home_about_text") or settings["home_intro"]
+    about_html = render_home_description(about_text)
 
     body = f"""
     <section class="hero">
+      <img class="hero-bg" src="{e(home_image)}" alt="">
       <div class="hero-content">
-        <p class="eyebrow">Jardin partagé · Paris 14</p>
+        <p class="eyebrow">{e(settings["home_hero_eyebrow"])}</p>
         <h1>{e(settings["site_title"])}</h1>
         <p>{e(settings["home_intro"])}</p>
         <div class="button-row">
-          <a class="button primary" href="/agenda">Voir l’agenda</a>
-          <a class="button secondary" href="/contact">Contacter l’association</a>
+          <a class="button primary" href="/agenda">{e(settings["home_primary_button_label"])}</a>
+          <a class="button secondary" href="/contact">{e(settings["home_secondary_button_label"])}</a>
         </div>
+        <form class="home-article-search" method="get" action="/articles" role="search" aria-label="Rechercher dans les articles">
+          <label for="home-article-search">Rechercher dans les articles</label>
+          <div class="search-row">
+            <input id="home-article-search" type="search" name="q" placeholder="Vide-greniers, compost, ateliers..." autocomplete="off">
+            <button class="button primary" type="submit">Rechercher</button>
+          </div>
+        </form>
       </div>
     </section>
 
     <section class="section split">
       <div>
-        <p class="eyebrow">Association de quartier</p>
-        <h2>Un site pour faire vivre le jardin entre deux permanences</h2>
+        <p class="eyebrow">{e(settings["home_about_eyebrow"])}</p>
+        <h2>{e(settings["home_about_title"])}</h2>
       </div>
-      <div class="lead">
-        {paragraphs(settings["home_intro"])}
+      <div class="lead home-description">
+        {about_html}
       </div>
     </section>
 
     <section class="section">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">Prochains rendez-vous</p>
-          <h2>Agenda du jardin</h2>
+          <p class="eyebrow">{e(settings["home_events_eyebrow"])}</p>
+          <h2>{e(settings["home_events_title"])}</h2>
         </div>
-        <a class="text-link" href="/agenda">Tout voir</a>
+        <a class="text-link" href="/agenda">{e(settings["home_events_link_label"])}</a>
       </div>
       <div class="card-grid">{event_html}</div>
     </section>
@@ -1092,21 +1392,21 @@ def home_page() -> str:
     <section class="section muted-band">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">Carnet de bord</p>
-          <h2>Articles mis en avant</h2>
+          <p class="eyebrow">{e(settings["home_articles_eyebrow"])}</p>
+          <h2>{e(settings["home_articles_title"])}</h2>
         </div>
-        <a class="text-link" href="/articles">Tous les articles</a>
+        <a class="text-link" href="/articles">{e(settings["home_articles_link_label"])}</a>
       </div>
-      <div class="card-grid">{article_html}</div>
+      <div class="article-layout">{article_html}</div>
     </section>
 
     <section class="section">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">Banque de photos</p>
-          <h2>Images du jardin</h2>
+          <p class="eyebrow">{e(settings["home_photos_eyebrow"])}</p>
+          <h2>{e(settings["home_photos_title"])}</h2>
         </div>
-        <a class="text-link" href="/galerie">Ouvrir la galerie</a>
+        <a class="text-link" href="/galerie">{e(settings["home_photos_link_label"])}</a>
       </div>
       {photo_html}
     </section>
@@ -1115,8 +1415,8 @@ def home_page() -> str:
         "Accueil",
         body,
         "/",
-        description=settings["home_intro"],
-        image_url="/static/hero-garden.png",
+        description=settings.get("seo_description") or about_text or settings["home_intro"],
+        image_url=home_image,
         structured_data=[event_schema(row, settings) for row in events],
     )
 
@@ -1125,14 +1425,15 @@ def empty_state(message: str) -> str:
     return f'<div class="empty-state">{e(message)}</div>'
 
 
-def render_photo_strip(rows: list[sqlite3.Row]) -> str:
+def render_photo_strip(rows: list[sqlite3.Row], settings: dict[str, str]) -> str:
+    fallback_image = settings.get("home_image_url") or "/static/hero-garden.png"
     if not rows:
-        return """
+        return f"""
         <div class="photo-preview">
-          <img src="/static/hero-garden.png" alt="">
+          <img src="{e(fallback_image)}" alt="">
           <div>
-            <h3>La galerie est prête</h3>
-            <p>Les premières photos ajoutées depuis l’administration apparaîtront ici.</p>
+            <h3>{e(settings["home_photos_empty_title"])}</h3>
+            <p>{e(settings["home_photos_empty_text"])}</p>
           </div>
         </div>
         """
@@ -1289,7 +1590,7 @@ def articles_page(query: dict[str, list[str]] | None = None) -> str:
         </div>
       </form>
       {search_summary}
-      <div class="card-grid">{"".join(article_card(row) for row in rows) or empty_state(empty_message)}</div>
+      <div class="article-layout">{"".join(article_card(row) for row in rows) or empty_state(empty_message)}</div>
     </section>
     """
     return layout(
@@ -1462,6 +1763,88 @@ def contact_page(sent: bool = False, saved: bool = False) -> str:
     )
 
 
+def practical_info_page() -> str:
+    settings = read_settings()
+    map_embed_url = settings.get("practical_map_embed_url", "").strip()
+    map_link_url = settings.get("practical_map_link_url", "").strip()
+    address = settings.get("practical_address") or "37 rue de Coulmiers, 75014 Paris"
+    map_frame = (
+        f"""
+        <div class="external-content-placeholder" data-external-placeholder>
+          <strong>Carte externe</strong>
+          <p>La carte OpenStreetMap se charge depuis un service externe. Tu peux l’afficher en acceptant les contenus externes.</p>
+          <button class="button primary" type="button" data-external-accept>Afficher la carte</button>
+        </div>
+          <iframe
+            title="Carte du jardin Vert-Tige"
+            data-consent-src="{e(map_embed_url)}"
+            hidden
+            loading="lazy"
+            referrerpolicy="no-referrer-when-downgrade"></iframe>
+        """
+        if map_embed_url
+        else '<div class="map-placeholder">Carte à configurer depuis l’administration.</div>'
+    )
+    map_link = (
+        f'<a class="button secondary" href="{e(map_link_url)}" target="_blank" rel="noopener noreferrer">Ouvrir l’itinéraire</a>'
+        if map_link_url
+        else ""
+    )
+    body = f"""
+    <section class="page-hero compact-hero">
+      <p class="eyebrow">{e(settings.get("practical_eyebrow"))}</p>
+      <h1>{e(settings.get("practical_title"))}</h1>
+      <p>{e(settings.get("practical_intro"))}</p>
+    </section>
+    <section class="section practical-layout">
+      <article class="practical-map-card">
+        <div class="map-frame" data-external-content>
+          {map_frame}
+        </div>
+        <aside class="map-corner-card">
+          <span>Adresse</span>
+          <strong>{e(address)}</strong>
+          <p>{e(settings.get("practical_opening"))}</p>
+          {map_link}
+        </aside>
+      </article>
+      <div class="practical-info-grid">
+        <article class="practical-info-card featured">
+          <span>Adresse</span>
+          <strong>{e(address)}</strong>
+        </article>
+        <article class="practical-info-card">
+          <span>Bus</span>
+          <p>{e(settings.get("practical_bus"))}</p>
+        </article>
+        <article class="practical-info-card">
+          <span>Métro</span>
+          <p>{e(settings.get("practical_metro"))}</p>
+        </article>
+        <article class="practical-info-card">
+          <span>Tram</span>
+          <p>{e(settings.get("practical_tram"))}</p>
+        </article>
+        <article class="practical-info-card">
+          <span>Vélib</span>
+          <p>{e(settings.get("practical_velib"))}</p>
+        </article>
+        <article class="practical-info-card opening">
+          <span>Ouverture au public</span>
+          <p>{e(settings.get("practical_opening"))}</p>
+        </article>
+      </div>
+    </section>
+    """
+    return layout(
+        "Infos pratiques",
+        body,
+        "/infos-pratiques",
+        description="Adresse, transports et horaires du jardin partagé Vert-Tige à Paris 14.",
+        image_url=settings.get("seo_image_url"),
+    )
+
+
 def legal_page() -> str:
     settings = read_settings()
     legal_text = settings.get("legal_text", "").strip()
@@ -1497,11 +1880,36 @@ def legal_page() -> str:
     )
 
 
+def terms_page() -> str:
+    settings = read_settings()
+    terms_text = settings.get("terms_text", "").strip()
+    content = paragraphs(terms_text) if terms_text else "<p>Les conditions générales d’utilisation pourront être complétées avant la mise en ligne officielle.</p>"
+    body = f"""
+    <section class="page-hero compact-hero">
+      <p class="eyebrow">Cadre d’utilisation</p>
+      <h1>Conditions générales d’utilisation</h1>
+      <p>Les règles de consultation et d’utilisation du site Vert-Tige.</p>
+    </section>
+    <section class="section legal-layout">
+      <article class="legal-block">
+        {content}
+      </article>
+    </section>
+    """
+    return layout(
+        "Conditions générales d’utilisation",
+        body,
+        "/conditions-generales-utilisation",
+        description="Conditions générales d’utilisation du site de l’association Vert-Tige.",
+    )
+
+
 def admin_shell(title: str, content: str, tab: str = "/admin") -> str:
     tabs = "".join(
         [
             nav_link("/admin", "Tableau de bord", tab),
             nav_link("/admin/home", "Accueil", tab),
+            nav_link("/admin/practical", "Infos pratiques", tab),
             nav_link("/admin/events", "Agenda", tab),
             nav_link("/admin/articles", "Articles", tab),
             nav_link("/admin/photos", "Photos", tab),
@@ -1566,6 +1974,7 @@ def admin_dashboard() -> str:
     <div class="metrics">{cards}</div>
     <div class="admin-grid">
       <a class="admin-action" href="/admin/home"><strong>Page d’accueil</strong><span>Modifier le logo, le texte principal et le référencement.</span></a>
+      <a class="admin-action" href="/admin/practical"><strong>Infos pratiques</strong><span>Mettre à jour l’adresse, les transports, la carte et les horaires.</span></a>
       <a class="admin-action" href="/admin/events/new"><strong>Nouvel événement</strong><span>Ajouter un atelier ou une permanence au calendrier.</span></a>
       <a class="admin-action" href="/admin/articles/new"><strong>Nouvel article</strong><span>Rédiger une actualité et choisir si elle est mise en avant.</span></a>
       <a class="admin-action" href="/admin/photos"><strong>Ajouter des photos</strong><span>Alimenter la banque d’images du jardin.</span></a>
@@ -1577,26 +1986,165 @@ def admin_dashboard() -> str:
 
 def admin_home_page() -> str:
     settings = read_settings()
+    home_image_url = settings.get("home_image_url") or DEFAULT_SETTINGS["home_image_url"]
+    home_image_preview = f'<img class="home-image-preview" src="{e(home_image_url)}" alt="Image principale actuelle" data-home-image-preview>'
+    instagram_banner_image_url = settings.get("instagram_banner_image_url") or DEFAULT_SETTINGS["instagram_banner_image_url"]
+    instagram_banner_preview = f'<img class="home-image-preview" src="{e(instagram_banner_image_url)}" alt="Image du bandeau Instagram" data-instagram-banner-preview>'
+    with connect() as conn:
+        library_photos = conn.execute(
+            """
+            SELECT p.*, a.name AS album_name
+            FROM photos p
+            LEFT JOIN photo_albums a ON a.id = p.album_id
+            ORDER BY p.created_at DESC
+            """
+        ).fetchall()
+    library_options = photo_library_options(library_photos, home_image_url)
+    instagram_library_options = photo_library_options(library_photos, instagram_banner_image_url)
+    home_library_select = (
+        f"""
+          <label>Ou choisir dans la banque de photos
+            <select name="home_image_choice" data-home-image-choice>
+              <option value="">Conserver l’image actuelle</option>
+              {library_options}
+            </select>
+          </label>
+        """
+        if library_options
+        else '<p class="form-note">Ajoute d’abord des photos dans la banque de photos pour pouvoir les choisir ici.</p>'
+    )
+    instagram_library_select = (
+        f"""
+          <label>Ou choisir dans la banque de photos
+            <select name="instagram_banner_image_choice" data-instagram-banner-choice>
+              <option value="">Conserver l’image actuelle</option>
+              {instagram_library_options}
+            </select>
+          </label>
+        """
+        if instagram_library_options
+        else '<p class="form-note">Ajoute d’abord des photos dans la banque de photos pour pouvoir les choisir ici.</p>'
+    )
     logo_preview = (
         f'<img class="logo-preview" src="{e(settings.get("logo_url"))}" alt="Logo actuel">'
         if settings.get("logo_url")
         else '<div class="logo-placeholder">VT</div>'
     )
+    about_editor_html = editor_home_description(settings.get("home_about_text"))
+    about_size_options = rich_text_size_options()
+    analytics_provider = settings.get("analytics_provider", "")
+    analytics_options = "".join(
+        f'<option value="{value}" {"selected" if analytics_provider == value else ""}>{label}</option>'
+        for value, label in [
+            ("", "Aucun traceur"),
+            ("plausible", "Plausible"),
+            ("fathom", "Fathom"),
+        ]
+    )
     content = f"""
     <form class="form-panel" method="post" action="/admin/home" enctype="multipart/form-data">
+      <nav class="admin-home-tabs" aria-label="Sous-navigation de la page d’accueil">
+        <button class="admin-home-tab is-active" type="button" data-admin-home-tab="identity">Identité</button>
+        <button class="admin-home-tab" type="button" data-admin-home-tab="texts">Textes</button>
+        <button class="admin-home-tab" type="button" data-admin-home-tab="sections">Sections</button>
+        <button class="admin-home-tab" type="button" data-admin-home-tab="social">Réseaux / footer</button>
+        <button class="admin-home-tab" type="button" data-admin-home-tab="legal">Référencement / légal</button>
+      </nav>
+      <section class="admin-home-panel is-active" data-admin-home-panel="identity">
       <label>Nom du site<input name="site_title" value="{e(settings['site_title'])}" required></label>
       <label>Sous-titre<input name="tagline" value="{e(settings['tagline'])}" required></label>
       <div class="logo-editor">
         <div>
           <p class="field-label">Logo actuel</p>
-          {logo_preview}
+          <div data-logo-preview>{logo_preview}</div>
         </div>
         <div>
-          <label>Nouveau logo<input type="file" name="logo_file" accept="image/*"></label>
-          <label class="inline-check"><input type="checkbox" name="remove_logo" value="1"> Revenir au monogramme VT</label>
+          <input type="hidden" name="remove_logo" value="" data-logo-reset-field>
+          <label>Nouveau logo<input type="file" name="logo_file" accept="image/*" data-logo-file></label>
+          <button class="button small secondary" type="button" data-reset-logo>Retour à zéro</button>
         </div>
       </div>
-      <label>Texte d’accueil<textarea name="home_intro" rows="7">{e(settings['home_intro'])}</textarea></label>
+      <div class="logo-editor">
+        <div>
+          <p class="field-label">Image principale actuelle</p>
+          {home_image_preview}
+        </div>
+        <div>
+          <input type="hidden" name="remove_home_image" value="" data-home-image-reset-field>
+          <label>Nouvelle image principale<input type="file" name="home_image_file" accept="image/*" data-home-image-file></label>
+          {home_library_select}
+          <button class="button small secondary" type="button" data-reset-home-image data-default-src="{e(DEFAULT_SETTINGS['home_image_url'])}">Retour à zéro</button>
+        </div>
+      </div>
+      </section>
+      <section class="admin-home-panel" data-admin-home-panel="texts">
+      <div class="settings-section">
+        <h2>Bandeau principal</h2>
+        <label>Petit titre<input name="home_hero_eyebrow" value="{e(settings.get('home_hero_eyebrow', ''))}"></label>
+        <label>Phrase d’accroche<textarea name="home_intro" rows="3">{e(settings['home_intro'])}</textarea></label>
+        <div class="form-row">
+          <label>Bouton vers l’agenda<input name="home_primary_button_label" value="{e(settings.get('home_primary_button_label', ''))}"></label>
+          <label>Bouton vers le contact<input name="home_secondary_button_label" value="{e(settings.get('home_secondary_button_label', ''))}"></label>
+        </div>
+        <p class="form-note">Le grand titre du bandeau reprend le nom du site renseigné plus haut.</p>
+      </div>
+      <div class="settings-section">
+        <h2>Bloc de présentation</h2>
+        <label>Petit titre<input name="home_about_eyebrow" value="{e(settings.get('home_about_eyebrow', ''))}"></label>
+        <label>Titre du bloc<input name="home_about_title" value="{e(settings.get('home_about_title', ''))}"></label>
+        <div class="description-format-panel" data-rich-editor-panel>
+          <p class="field-label">Description</p>
+          <div class="rich-text-toolbar" data-rich-toolbar aria-label="Mise en forme de la description">
+            <button class="format-button" type="button" data-rich-command="bold" title="Gras"><strong>B</strong></button>
+            <button class="format-button" type="button" data-rich-command="italic" title="Italique"><em>I</em></button>
+            <button class="format-button" type="button" data-rich-command="underline" title="Souligné"><u>U</u></button>
+            <label class="rich-size-select">Taille
+              <select data-rich-size>{about_size_options}</select>
+            </label>
+          </div>
+          <div class="rich-text-editor" contenteditable="true" role="textbox" aria-multiline="true" data-rich-editor>{about_editor_html}</div>
+          <input type="hidden" name="home_about_text" value="{e(about_editor_html)}" data-rich-input>
+        </div>
+        <p class="form-note">Sélectionne un mot ou une phrase dans la description, puis applique le style souhaité.</p>
+      </div>
+      </section>
+      <section class="admin-home-panel" data-admin-home-panel="sections">
+      <div class="settings-section">
+        <h2>Section agenda</h2>
+        <div class="form-row">
+          <label>Petit titre<input name="home_events_eyebrow" value="{e(settings.get('home_events_eyebrow', ''))}"></label>
+          <label>Titre<input name="home_events_title" value="{e(settings.get('home_events_title', ''))}"></label>
+        </div>
+        <div class="form-row">
+          <label>Lien<input name="home_events_link_label" value="{e(settings.get('home_events_link_label', ''))}"></label>
+          <label>Message si aucun événement<input name="home_events_empty" value="{e(settings.get('home_events_empty', ''))}"></label>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h2>Section articles</h2>
+        <div class="form-row">
+          <label>Petit titre<input name="home_articles_eyebrow" value="{e(settings.get('home_articles_eyebrow', ''))}"></label>
+          <label>Titre<input name="home_articles_title" value="{e(settings.get('home_articles_title', ''))}"></label>
+        </div>
+        <div class="form-row">
+          <label>Lien<input name="home_articles_link_label" value="{e(settings.get('home_articles_link_label', ''))}"></label>
+          <label>Message si aucun article<input name="home_articles_empty" value="{e(settings.get('home_articles_empty', ''))}"></label>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h2>Section photos</h2>
+        <div class="form-row">
+          <label>Petit titre<input name="home_photos_eyebrow" value="{e(settings.get('home_photos_eyebrow', ''))}"></label>
+          <label>Titre<input name="home_photos_title" value="{e(settings.get('home_photos_title', ''))}"></label>
+        </div>
+        <label>Lien<input name="home_photos_link_label" value="{e(settings.get('home_photos_link_label', ''))}"></label>
+        <div class="form-row">
+          <label>Titre si aucune photo<input name="home_photos_empty_title" value="{e(settings.get('home_photos_empty_title', ''))}"></label>
+          <label>Texte si aucune photo<input name="home_photos_empty_text" value="{e(settings.get('home_photos_empty_text', ''))}"></label>
+        </div>
+      </div>
+      </section>
+      <section class="admin-home-panel" data-admin-home-panel="social">
       <div class="settings-section">
         <h2>Réseaux sociaux</h2>
         <div class="form-row">
@@ -1604,6 +2152,32 @@ def admin_home_page() -> str:
           <label>Instagram<input type="url" name="instagram_url" value="{e(settings.get('instagram_url', ''))}" placeholder="https://www.instagram.com/..."></label>
         </div>
       </div>
+      <div class="settings-section">
+        <h2>Bandeau Instagram avant footer</h2>
+        <label>Texte affiché<input name="instagram_banner_text" value="{e(settings.get('instagram_banner_text', ''))}"></label>
+        <div class="logo-editor">
+          <div>
+            <p class="field-label">Image actuelle</p>
+            {instagram_banner_preview}
+          </div>
+          <div>
+            <input type="hidden" name="remove_instagram_banner_image" value="" data-instagram-banner-reset-field>
+            <label>Nouvelle image<input type="file" name="instagram_banner_image_file" accept="image/*" data-instagram-banner-file></label>
+            {instagram_library_select}
+            <button class="button small secondary" type="button" data-reset-instagram-banner data-default-src="{e(DEFAULT_SETTINGS['instagram_banner_image_url'])}">Retour à zéro</button>
+          </div>
+        </div>
+        <p class="form-note">L’image entière devient cliquable vers l’adresse Instagram configurée plus haut.</p>
+      </div>
+      <div class="settings-section">
+        <h2>Footer</h2>
+        <div class="form-row">
+          <label>Adresse<input name="footer_address" value="{e(settings.get('footer_address', ''))}"></label>
+          <label>Copyright<input name="footer_copyright" value="{e(settings.get('footer_copyright', ''))}"></label>
+        </div>
+      </div>
+      </section>
+      <section class="admin-home-panel" data-admin-home-panel="legal">
       <div class="settings-section">
         <h2>Référencement</h2>
         <label>URL publique du site<input type="url" name="site_url" value="{e(settings.get('site_url', ''))}" placeholder="https://www.vert-tige.fr"></label>
@@ -1617,6 +2191,7 @@ def admin_home_page() -> str:
         <label>Responsable de publication<input name="legal_responsible" value="{e(settings.get('legal_responsible', ''))}"></label>
         <label>Hébergeur<textarea name="legal_hosting" rows="4">{e(settings.get('legal_hosting', ''))}</textarea></label>
         <label>Texte complémentaire<textarea name="legal_text" rows="7">{e(settings.get('legal_text', ''))}</textarea></label>
+        <label>Conditions générales d’utilisation<textarea name="terms_text" rows="7">{e(settings.get('terms_text', ''))}</textarea></label>
       </div>
       <div class="settings-section">
         <h2>Google Ads</h2>
@@ -1624,12 +2199,57 @@ def admin_home_page() -> str:
           <label>ID Google Ads<input name="google_ads_id" value="{e(settings.get('google_ads_id', ''))}" placeholder="AW-XXXXXXXXXX"></label>
           <label>Libellé de conversion contact<input name="google_ads_conversion_label" value="{e(settings.get('google_ads_conversion_label', ''))}"></label>
         </div>
-        <p class="form-note">Ces champs préparent le chargement du tag Google Ads et l’événement de conversion après envoi du formulaire de contact.</p>
+        <p class="form-note">Ces champs préparent le tag Google Ads, chargé uniquement après acceptation des cookies.</p>
       </div>
+      <div class="settings-section">
+        <h2>Statistiques de fréquentation</h2>
+        <div class="form-row">
+          <label>Outil
+            <select name="analytics_provider">{analytics_options}</select>
+          </label>
+          <label>Identifiant du site<input name="analytics_site_id" value="{e(settings.get('analytics_site_id', ''))}" placeholder="Domaine Plausible ou Site ID Fathom"></label>
+        </div>
+        <p class="form-note">Plausible et Fathom peuvent fonctionner sans cookies. Le script reste soumis au choix du visiteur dans cette base.</p>
+      </div>
+      </section>
       <button class="button primary" type="submit">Enregistrer</button>
     </form>
     """
     return admin_shell("Page d’accueil", content, "/admin/home")
+
+
+def admin_practical_page() -> str:
+    settings = read_settings()
+    content = f"""
+    <form class="form-panel" method="post" action="/admin/practical">
+      <div class="settings-section">
+        <h2>En-tête</h2>
+        <label>Petit titre<input name="practical_eyebrow" value="{e(settings.get('practical_eyebrow', ''))}"></label>
+        <label>Titre<input name="practical_title" value="{e(settings.get('practical_title', ''))}"></label>
+        <label>Introduction<textarea name="practical_intro" rows="3">{e(settings.get('practical_intro', ''))}</textarea></label>
+      </div>
+      <div class="settings-section">
+        <h2>Adresse et carte</h2>
+        <label>Adresse<input name="practical_address" value="{e(settings.get('practical_address', ''))}"></label>
+        <label>URL de carte intégrée<textarea name="practical_map_embed_url" rows="3">{e(settings.get('practical_map_embed_url', ''))}</textarea></label>
+        <label>Lien d’itinéraire<input type="url" name="practical_map_link_url" value="{e(settings.get('practical_map_link_url', ''))}"></label>
+        <p class="form-note">La carte intégrée peut être un lien d’intégration OpenStreetMap. Le lien d’itinéraire ouvre la carte dans un nouvel onglet.</p>
+      </div>
+      <div class="settings-section">
+        <h2>Transports</h2>
+        <label>Bus<input name="practical_bus" value="{e(settings.get('practical_bus', ''))}"></label>
+        <label>Métro<input name="practical_metro" value="{e(settings.get('practical_metro', ''))}"></label>
+        <label>Tram<input name="practical_tram" value="{e(settings.get('practical_tram', ''))}"></label>
+        <label>Vélib<input name="practical_velib" value="{e(settings.get('practical_velib', ''))}"></label>
+      </div>
+      <div class="settings-section">
+        <h2>Ouverture</h2>
+        <label>Horaires<textarea name="practical_opening" rows="3">{e(settings.get('practical_opening', ''))}</textarea></label>
+      </div>
+      <button class="button primary" type="submit">Enregistrer</button>
+    </form>
+    """
+    return admin_shell("Infos pratiques", content, "/admin/practical")
 
 
 def event_form(row: sqlite3.Row | None = None) -> str:
@@ -2009,8 +2629,10 @@ def sitemap_xml() -> str:
         sitemap_entry("/agenda", settings, changefreq="weekly", priority="0.8"),
         sitemap_entry("/articles", settings, changefreq="weekly", priority="0.8"),
         sitemap_entry("/galerie", settings, changefreq="monthly", priority="0.7"),
+        sitemap_entry("/infos-pratiques", settings, changefreq="yearly", priority="0.6"),
         sitemap_entry("/contact", settings, changefreq="yearly", priority="0.5"),
         sitemap_entry("/mentions-legales", settings, changefreq="yearly", priority="0.3"),
+        sitemap_entry("/conditions-generales-utilisation", settings, changefreq="yearly", priority="0.3"),
     ]
     with connect() as conn:
         articles = conn.execute(
@@ -2140,6 +2762,14 @@ def save_logo_upload(upload: Upload) -> str | None:
     return f"/static/uploads/{filename}"
 
 
+def save_home_image_upload(upload: Upload) -> str | None:
+    if not upload or not upload.data or len(upload.data) > MAX_UPLOAD_BYTES:
+        return None
+    filename = safe_upload_name(f"accueil-{upload.filename}")
+    (UPLOAD_DIR / filename).write_bytes(upload.data)
+    return f"/static/uploads/{filename}"
+
+
 def save_cropped_article_image(
     conn: sqlite3.Connection,
     data_url: str,
@@ -2258,12 +2888,16 @@ class VertTigeHandler(BaseHTTPRequestHandler):
             self.respond_html(article_page(unquote(path.removeprefix("/articles/"))))
         elif path == "/galerie":
             self.respond_html(gallery_page(query))
+        elif path == "/infos-pratiques":
+            self.respond_html(practical_info_page())
         elif path == "/contact":
             self.respond_html(
                 contact_page(sent=query.get("sent") == ["1"], saved=query.get("saved") == ["1"])
             )
         elif path == "/mentions-legales":
             self.respond_html(legal_page())
+        elif path == "/conditions-generales-utilisation":
+            self.respond_html(terms_page())
         elif path == "/admin/login":
             self.respond_html(login_page(error=query.get("error") == ["1"]))
         elif path == "/admin/logout":
@@ -2300,6 +2934,8 @@ class VertTigeHandler(BaseHTTPRequestHandler):
             self.respond_html(admin_dashboard())
         elif path == "/admin/home":
             self.respond_html(admin_home_page())
+        elif path == "/admin/practical":
+            self.respond_html(admin_practical_page())
         elif path == "/admin/events":
             self.respond_html(admin_events_page())
         elif path == "/admin/events/new":
@@ -2327,6 +2963,8 @@ class VertTigeHandler(BaseHTTPRequestHandler):
     def route_admin_post(self, path: str, user: sqlite3.Row) -> None:
         if path == "/admin/home":
             self.save_home()
+        elif path == "/admin/practical":
+            self.save_practical()
         elif path == "/admin/events/save":
             self.save_event()
         elif match := re.fullmatch(r"/admin/events/(\d+)/save", path):
@@ -2390,15 +3028,42 @@ class VertTigeHandler(BaseHTTPRequestHandler):
             "site_title",
             "tagline",
             "home_intro",
+            "home_about_text",
+            "home_image_url",
+            "home_hero_eyebrow",
+            "home_primary_button_label",
+            "home_secondary_button_label",
+            "home_about_eyebrow",
+            "home_about_title",
+            "home_events_eyebrow",
+            "home_events_title",
+            "home_events_link_label",
+            "home_events_empty",
+            "home_articles_eyebrow",
+            "home_articles_title",
+            "home_articles_link_label",
+            "home_articles_empty",
+            "home_photos_eyebrow",
+            "home_photos_title",
+            "home_photos_link_label",
+            "home_photos_empty_title",
+            "home_photos_empty_text",
             "logo_url",
             "facebook_url",
             "instagram_url",
+            "footer_address",
+            "footer_copyright",
+            "instagram_banner_text",
+            "instagram_banner_image_url",
             "legal_publisher",
             "legal_responsible",
             "legal_hosting",
             "legal_text",
+            "terms_text",
             "google_ads_id",
             "google_ads_conversion_label",
+            "analytics_provider",
+            "analytics_site_id",
             "site_url",
             "seo_description",
             "google_site_verification",
@@ -2409,21 +3074,67 @@ class VertTigeHandler(BaseHTTPRequestHandler):
         if not valid_optional_url(form.get("site_url", "").strip()):
             self.redirect("/admin/home")
             return
+        if form.get("analytics_provider", "").strip() not in {"", "plausible", "fathom"}:
+            self.redirect("/admin/home")
+            return
         current_settings = read_settings()
         current_logo = current_settings.get("logo_url", "")
-        logo_url = "" if form.get("remove_logo") == "1" else current_logo
+        current_home_image = current_settings.get("home_image_url") or DEFAULT_SETTINGS["home_image_url"]
+        current_instagram_banner_image = (
+            current_settings.get("instagram_banner_image_url") or DEFAULT_SETTINGS["instagram_banner_image_url"]
+        )
+        remove_logo = form.get("remove_logo") == "1"
+        remove_home_image = form.get("remove_home_image") == "1"
+        remove_instagram_banner_image = form.get("remove_instagram_banner_image") == "1"
+        logo_url = "" if remove_logo else current_logo
+        home_image_url = DEFAULT_SETTINGS["home_image_url"] if remove_home_image else current_home_image
+        instagram_banner_image_url = (
+            DEFAULT_SETTINGS["instagram_banner_image_url"]
+            if remove_instagram_banner_image
+            else current_instagram_banner_image
+        )
+        home_image_choice = existing_photo_upload_url(form.get("home_image_choice"))
+        if home_image_choice and not remove_home_image:
+            home_image_url = home_image_choice
+        instagram_banner_image_choice = existing_photo_upload_url(form.get("instagram_banner_image_choice"))
+        if instagram_banner_image_choice and not remove_instagram_banner_image:
+            instagram_banner_image_url = instagram_banner_image_choice
         logo_file = files.get("logo_file")
-        if logo_file and logo_file.data:
+        if logo_file and logo_file.data and not remove_logo:
             try:
                 uploaded_logo = save_logo_upload(logo_file)
             except ValueError:
                 uploaded_logo = None
             if uploaded_logo:
                 logo_url = uploaded_logo
+        home_image_file = files.get("home_image_file")
+        if home_image_file and home_image_file.data and not remove_home_image:
+            try:
+                uploaded_home_image = save_home_image_upload(home_image_file)
+            except ValueError:
+                uploaded_home_image = None
+            if uploaded_home_image:
+                home_image_url = uploaded_home_image
+        instagram_banner_image_file = files.get("instagram_banner_image_file")
+        if instagram_banner_image_file and instagram_banner_image_file.data and not remove_instagram_banner_image:
+            try:
+                uploaded_instagram_banner_image = save_home_image_upload(instagram_banner_image_file)
+            except ValueError:
+                uploaded_instagram_banner_image = None
+            if uploaded_instagram_banner_image:
+                instagram_banner_image_url = uploaded_instagram_banner_image
         with connect() as conn:
             for key in allowed:
                 if key == "logo_url":
                     value = logo_url
+                elif key == "home_image_url":
+                    value = home_image_url
+                elif key == "instagram_banner_image_url":
+                    value = instagram_banner_image_url
+                elif key == "home_about_text":
+                    value = sanitize_rich_text(form.get(key, ""))
+                elif key == "analytics_provider":
+                    value = form.get(key, "").strip()
                 else:
                     value = form.get(key, "").strip()
                 conn.execute(
@@ -2432,6 +3143,37 @@ class VertTigeHandler(BaseHTTPRequestHandler):
                     (key, value),
                 )
         self.redirect("/admin/home")
+
+    def save_practical(self) -> None:
+        form, _files = self.read_form()
+        allowed = [
+            "practical_eyebrow",
+            "practical_title",
+            "practical_intro",
+            "practical_address",
+            "practical_map_embed_url",
+            "practical_map_link_url",
+            "practical_bus",
+            "practical_metro",
+            "practical_tram",
+            "practical_velib",
+            "practical_opening",
+        ]
+        map_embed_url = form.get("practical_map_embed_url", "").strip()
+        map_link_url = form.get("practical_map_link_url", "").strip()
+        if (map_embed_url and not valid_optional_url(map_embed_url)) or (
+            map_link_url and not valid_optional_url(map_link_url)
+        ):
+            self.redirect("/admin/practical")
+            return
+        with connect() as conn:
+            for key in allowed:
+                conn.execute(
+                    "INSERT INTO settings (key, value) VALUES (?, ?) "
+                    "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                    (key, form.get(key, "").strip()),
+                )
+        self.redirect("/admin/practical")
 
     def save_messaging_settings(self) -> None:
         form, _ = self.read_form()
@@ -2861,9 +3603,10 @@ class VertTigeHandler(BaseHTTPRequestHandler):
         self.send_header(
             "Content-Security-Policy",
             "default-src 'self'; "
-            f"script-src 'self' 'nonce-{nonce}' https://www.googletagmanager.com; "
-            "connect-src 'self' https://www.google-analytics.com https://www.googletagmanager.com https://googleads.g.doubleclick.net; "
+            f"script-src 'self' 'nonce-{nonce}' https://www.googletagmanager.com https://plausible.io https://cdn.usefathom.com; "
+            "connect-src 'self' https://www.google-analytics.com https://www.googletagmanager.com https://googleads.g.doubleclick.net https://plausible.io https://api.usefathom.com; "
             "img-src 'self' data: https://www.google.com https://www.google.fr https://googleads.g.doubleclick.net; "
+            "frame-src https://www.openstreetmap.org; "
             "style-src 'self'; form-action 'self'",
         )
         self.end_headers()

@@ -91,12 +91,10 @@ DEFAULT_SETTINGS = {
     "home_about_text": OLD_HOME_INTRO,
     "home_image_url": "/static/hero-garden.png",
     "home_hero_eyebrow": "Jardin partagé · Paris 14",
-    "home_primary_button_label": "Voir l’agenda",
-    "home_secondary_button_label": "Contacter l’association",
     "home_about_eyebrow": "Association de quartier",
     "home_about_title": "Un site pour faire vivre le jardin entre deux permanences",
-    "home_events_eyebrow": "Prochains rendez-vous",
-    "home_events_title": "Agenda du jardin",
+    "home_events_eyebrow": "Programmation",
+    "home_events_title": "Les prochains rendez-vous",
     "home_events_link_label": "Tout voir",
     "home_events_empty": "Aucun rendez-vous à venir pour le moment.",
     "home_articles_eyebrow": "Carnet de bord",
@@ -109,7 +107,7 @@ DEFAULT_SETTINGS = {
     "home_photos_empty_title": "La galerie est prête",
     "home_photos_empty_text": "Les premières photos ajoutées depuis l’administration apparaîtront ici.",
     "contact_email": "contact@vert-tige.local",
-    "logo_url": "",
+    "logo_url": "/static/logo-vert-tige.png",
     "facebook_url": "",
     "instagram_url": "",
     "footer_address": "37, rue de Coulmiers – 75014 Paris",
@@ -682,6 +680,38 @@ def contact_message_by_token(token: str) -> sqlite3.Row | None:
         return conn.execute("SELECT * FROM messages WHERE mail_token = ?", (token,)).fetchone()
 
 
+def make_captcha_challenge() -> tuple[str, str]:
+    left = secrets.randbelow(8) + 2
+    right = secrets.randbelow(8) + 2
+    issued_at = int(time.time())
+    payload = f"{left + right}:{issued_at}:{secrets.token_hex(6)}"
+    encoded = base64.urlsafe_b64encode(payload.encode("utf-8")).decode("ascii").rstrip("=")
+    signature = hmac.new(SESSION_SECRET.encode(), encoded.encode(), hashlib.sha256).hexdigest()
+    return f"Combien font {left} + {right} ?", f"{encoded}.{signature}"
+
+
+def verify_captcha_answer(answer: str | None, token: str | None) -> bool:
+    if not answer or not token:
+        return False
+    try:
+        encoded, signature = token.rsplit(".", 1)
+    except ValueError:
+        return False
+    expected = hmac.new(SESSION_SECRET.encode(), encoded.encode(), hashlib.sha256).hexdigest()
+    if not secrets.compare_digest(signature, expected):
+        return False
+    try:
+        padding = "=" * (-len(encoded) % 4)
+        decoded = base64.urlsafe_b64decode(encoded + padding).decode("utf-8")
+        expected_answer, issued_at, _nonce = decoded.split(":", 2)
+        issued = int(issued_at)
+    except (ValueError, binascii.Error, UnicodeDecodeError):
+        return False
+    if time.time() - issued > 30 * 60:
+        return False
+    return answer.strip() == expected_answer
+
+
 def public_base_url(settings: dict[str, str]) -> str:
     if PUBLIC_URL:
         return PUBLIC_URL
@@ -1030,6 +1060,18 @@ def init_db() -> None:
             "UPDATE settings SET value = ? WHERE key = 'footer_address' AND value = ?",
             ("37, rue de Coulmiers – 75014 Paris", "37, rue de Coulmiers – 75104 Paris"),
         )
+        conn.execute(
+            "UPDATE settings SET value = ? WHERE key = 'home_events_eyebrow' AND value = ?",
+            ("Programmation", "Prochains rendez-vous"),
+        )
+        conn.execute(
+            "UPDATE settings SET value = ? WHERE key = 'home_events_title' AND value = ?",
+            ("Les prochains rendez-vous", "Agenda du jardin"),
+        )
+        conn.execute(
+            "UPDATE settings SET value = ? WHERE key = 'logo_url' AND COALESCE(value, '') = ''",
+            (DEFAULT_SETTINGS["logo_url"],),
+        )
 
         article_count = conn.execute("SELECT COUNT(*) AS count FROM articles").fetchone()["count"]
         if article_count == 0:
@@ -1220,10 +1262,14 @@ def layout(
     stylesheet_url = versioned_static_url("/static/styles.css")
     editor_url = versioned_static_url("/static/article-editor.js")
     privacy_url = versioned_static_url("/static/privacy.js")
-    favicon_url = settings.get("logo_url") or "/static/favicon.svg"
+    favicon_ico_url = versioned_static_url("/static/favicon.ico")
+    favicon_png_url = versioned_static_url("/static/favicon-32.png")
+    apple_touch_icon_url = versioned_static_url("/static/apple-touch-icon.png")
     facebook_path = "M22 12.06C22 6.49 17.52 2 11.94 2S2 6.49 2 12.06c0 5.02 3.66 9.19 8.44 9.94v-7.03H7.9v-2.91h2.54V9.85c0-2.51 1.49-3.9 3.77-3.9 1.09 0 2.23.2 2.23.2v2.46h-1.25c-1.24 0-1.63.77-1.63 1.56v1.89h2.78l-.44 2.91h-2.34V22c4.78-.75 8.44-4.92 8.44-9.94z"
     instagram_path = "M7.7 2h8.6A5.7 5.7 0 0 1 22 7.7v8.6a5.7 5.7 0 0 1-5.7 5.7H7.7A5.7 5.7 0 0 1 2 16.3V7.7A5.7 5.7 0 0 1 7.7 2zm0 2A3.7 3.7 0 0 0 4 7.7v8.6A3.7 3.7 0 0 0 7.7 20h8.6a3.7 3.7 0 0 0 3.7-3.7V7.7A3.7 3.7 0 0 0 16.3 4H7.7zm4.3 3.35A4.65 4.65 0 1 1 7.35 12 4.65 4.65 0 0 1 12 7.35zm0 2A2.65 2.65 0 1 0 14.65 12 2.65 2.65 0 0 0 12 9.35zm5.03-2.2a1.08 1.08 0 1 1-1.08 1.08 1.08 1.08 0 0 1 1.08-1.08z"
     gear_path = "M19.43 12.98c.04-.32.07-.65.07-.98s-.02-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46a.5.5 0 0 0-.61-.22l-2.49 1a7.28 7.28 0 0 0-1.69-.98L14.5 2.42A.5.5 0 0 0 14 2h-4a.5.5 0 0 0-.5.42L9.12 5.07c-.6.24-1.16.56-1.69.98l-2.49-1a.5.5 0 0 0-.61.22l-2 3.46c-.12.22-.07.49.12.64l2.11 1.65c-.04.32-.06.65-.06.98s.02.66.06.98l-2.11 1.65a.5.5 0 0 0-.12.64l2 3.46c.13.22.39.31.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.38-2.65c.6-.25 1.17-.58 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46a.5.5 0 0 0-.12-.64l-2.12-1.65zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5z"
+    search_path = "M10.5 4a6.5 6.5 0 0 1 5.17 10.44l4.45 4.44-1.42 1.42-4.44-4.45A6.5 6.5 0 1 1 10.5 4zm0 2a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9z"
+    is_admin_area = current_path.startswith("/admin")
     social_links = (
         social_icon_link(settings.get("facebook_url", ""), "Facebook", facebook_path, "facebook")
         + social_icon_link(settings.get("instagram_url", ""), "Instagram", instagram_path, "instagram")
@@ -1242,16 +1288,29 @@ def layout(
         if logo_url
         else '<span class="brand-mark">VT</span>'
     )
+    header_search = (
+        ""
+        if is_admin_area
+        else f"""
+    <form class="header-search" method="get" action="/articles" role="search" aria-label="Rechercher dans les articles">
+      <label class="visually-hidden" for="header-article-search">Rechercher dans les articles</label>
+      <input id="header-article-search" type="search" name="q" placeholder="Rechercher un article" autocomplete="off">
+      <button type="submit" aria-label="Lancer la recherche">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="{search_path}"></path></svg>
+      </button>
+    </form>"""
+    )
     nav = "".join(
         [
             nav_link("/", "Accueil", current_path),
-            nav_link("/agenda", "Agenda", current_path),
+            nav_link("/agenda", "Programmation", current_path),
             nav_link("/articles", "Articles", current_path),
             nav_link("/galerie", "Photos", current_path),
             nav_link("/infos-pratiques", "Infos pratiques", current_path),
             nav_link("/contact", "Contact", current_path),
         ]
     )
+    footer_class = "site-footer footer-reveal" if current_path == "/" else "site-footer"
     return f"""<!doctype html>
 <html lang="fr">
 <head>
@@ -1259,7 +1318,9 @@ def layout(
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{e(page_title(title, settings))}</title>
   {seo_head(settings, title, current_path, description, image_url, og_type, structured_data, indexable)}
-  <link rel="icon" href="{e(favicon_url)}">
+  <link rel="icon" href="{e(favicon_ico_url)}" sizes="any">
+  <link rel="icon" type="image/png" href="{e(favicon_png_url)}" sizes="32x32">
+  <link rel="apple-touch-icon" href="{e(apple_touch_icon_url)}">
   <link rel="stylesheet" href="{e(stylesheet_url)}">
   <script src="{e(editor_url)}" defer></script>
   <script src="{e(privacy_url)}" defer></script>
@@ -1267,15 +1328,19 @@ def layout(
 </head>
 <body>
   <header class="site-header">
+    <button class="mobile-menu-toggle" type="button" aria-label="Ouvrir le menu" aria-controls="main-nav" aria-expanded="false" data-mobile-menu-toggle>
+      <span></span><span></span><span></span>
+    </button>
     <a class="brand" href="/">
       {brand_mark}
       <span><strong>{e(site_title)}</strong><small>{e(settings["tagline"])}</small></span>
     </a>
-    <nav class="main-nav" aria-label="Navigation principale">{nav}</nav>
+    {header_search}
+    <nav class="main-nav" id="main-nav" aria-label="Navigation principale" data-main-nav>{nav}</nav>
   </header>
   <main>{body}</main>
   {instagram_banner}
-  <footer class="site-footer">
+  <footer class="{footer_class}">
     <div class="footer-address">
       <strong>{e(settings.get("footer_address") or "37, rue de Coulmiers – 75104 Paris")}</strong>
     </div>
@@ -1354,17 +1419,6 @@ def home_page() -> str:
         <p class="eyebrow">{e(settings["home_hero_eyebrow"])}</p>
         <h1>{e(settings["site_title"])}</h1>
         <p>{e(settings["home_intro"])}</p>
-        <div class="button-row">
-          <a class="button primary" href="/agenda">{e(settings["home_primary_button_label"])}</a>
-          <a class="button secondary" href="/contact">{e(settings["home_secondary_button_label"])}</a>
-        </div>
-        <form class="home-article-search" method="get" action="/articles" role="search" aria-label="Rechercher dans les articles">
-          <label for="home-article-search">Rechercher dans les articles</label>
-          <div class="search-row">
-            <input id="home-article-search" type="search" name="q" placeholder="Vide-greniers, compost, ateliers..." autocomplete="off">
-            <button class="button primary" type="submit">Rechercher</button>
-          </div>
-        </form>
       </div>
     </section>
 
@@ -1516,13 +1570,16 @@ def agenda_page(query: dict[str, list[str]]) -> str:
             "SELECT * FROM events WHERE starts_on >= ? ORDER BY starts_on, start_time LIMIT 20",
             (today,),
         ).fetchall()
+        recent_program = conn.execute(
+            "SELECT * FROM events ORDER BY created_at DESC, starts_on DESC LIMIT 20"
+        ).fetchall()
 
     prev_link = add_month(current, -1).strftime("%Y-%m")
     next_link = add_month(current, 1).strftime("%Y-%m")
     body = f"""
     <section class="page-hero compact-hero">
-      <p class="eyebrow">Calendrier</p>
-      <h1>Agenda du jardin</h1>
+      <p class="eyebrow">Programmation</p>
+      <h1>Programmation</h1>
       <p>Les ateliers, permanences et moments collectifs de Vert-Tige.</p>
     </section>
     <section class="section">
@@ -1532,6 +1589,15 @@ def agenda_page(query: dict[str, list[str]]) -> str:
         <a class="button secondary" href="/agenda?mois={next_link}">Mois suivant</a>
       </div>
       {render_calendar_month(current, month_events)}
+      <div class="mobile-program-list">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Dernières annonces</p>
+            <h2>Programmation récente</h2>
+          </div>
+        </div>
+        <div class="list-stack">{"".join(event_card(row) for row in recent_program) or empty_state("Aucun événement publié.")}</div>
+      </div>
     </section>
     <section class="section muted-band">
       <div class="section-heading">
@@ -1544,7 +1610,7 @@ def agenda_page(query: dict[str, list[str]]) -> str:
     </section>
     """
     return layout(
-        "Agenda",
+        "Programmation",
         body,
         "/agenda",
         description="Calendrier des ateliers, permanences et événements du jardin partagé Vert-Tige à Paris 14.",
@@ -1721,12 +1787,15 @@ def gallery_page(query: dict[str, list[str]] | None = None) -> str:
     )
 
 
-def contact_page(sent: bool = False, saved: bool = False) -> str:
+def contact_page(sent: bool = False, saved: bool = False, error: str = "") -> str:
     settings = read_settings()
-    if sent:
-        success = '<div class="notice success">Message envoyé par email. Il est aussi conservé dans l’administration.</div>'
-    elif saved:
-        success = '<div class="notice warning">Message bien reçu et conservé dans l’administration. L’envoi email n’est pas encore configuré ou a échoué.</div>'
+    captcha_question, captcha_token = make_captcha_challenge()
+    if sent or saved:
+        success = '<div class="notice success">Message bien reçu. L’équipe Vert-Tige pourra le consulter dans l’administration.</div>'
+    elif error == "captcha":
+        success = '<div class="notice error">La vérification anti-spam est incorrecte. Merci de réessayer.</div>'
+    elif error == "validation":
+        success = '<div class="notice error">Merci de renseigner un nom, un email valide et un message.</div>'
     else:
         success = ""
     body = f"""
@@ -1744,13 +1813,16 @@ def contact_page(sent: bool = False, saved: bool = False) -> str:
           <label>Email<input required type="email" name="email" autocomplete="email"></label>
           <label>Sujet<input name="subject"></label>
           <label>Message<textarea required name="body" rows="7"></textarea></label>
+          <label class="captcha-field">{e(captcha_question)}<input required name="captcha_answer" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></label>
+          <input type="hidden" name="captcha_token" value="{e(captcha_token)}">
+          <label class="honeypot-field">Site web<input name="website" tabindex="-1" autocomplete="off"></label>
           <button class="button primary" type="submit">Envoyer</button>
         </form>
       </div>
       <aside class="info-panel">
         <p class="eyebrow">Adresse de contact</p>
         <h3>{e(settings["contact_email"])}</h3>
-        <p>Sans configuration SMTP, le formulaire enregistre les messages dans l’espace admin. Avec SMTP, il les envoie aussi par email.</p>
+        <p>Les messages envoyés depuis ce formulaire sont transmis à l’espace d’administration du site.</p>
       </aside>
     </section>
     """
@@ -1758,7 +1830,7 @@ def contact_page(sent: bool = False, saved: bool = False) -> str:
         "Contact",
         body,
         "/contact",
-        track_conversion=sent,
+        track_conversion=sent or saved,
         description="Contacter l’association Vert-Tige pour une question, une inscription ou une proposition d’atelier.",
     )
 
@@ -1910,7 +1982,7 @@ def admin_shell(title: str, content: str, tab: str = "/admin") -> str:
             nav_link("/admin", "Tableau de bord", tab),
             nav_link("/admin/home", "Accueil", tab),
             nav_link("/admin/practical", "Infos pratiques", tab),
-            nav_link("/admin/events", "Agenda", tab),
+            nav_link("/admin/events", "Programmation", tab),
             nav_link("/admin/articles", "Articles", tab),
             nav_link("/admin/photos", "Photos", tab),
             nav_link("/admin/messages", "Messages", tab),
@@ -2025,11 +2097,8 @@ def admin_home_page() -> str:
         if instagram_library_options
         else '<p class="form-note">Ajoute d’abord des photos dans la banque de photos pour pouvoir les choisir ici.</p>'
     )
-    logo_preview = (
-        f'<img class="logo-preview" src="{e(settings.get("logo_url"))}" alt="Logo actuel">'
-        if settings.get("logo_url")
-        else '<div class="logo-placeholder">VT</div>'
-    )
+    logo_url = settings.get("logo_url") or DEFAULT_SETTINGS["logo_url"]
+    logo_preview = f'<img class="logo-preview" src="{e(logo_url)}" alt="Logo actuel">'
     about_editor_html = editor_home_description(settings.get("home_about_text"))
     about_size_options = rich_text_size_options()
     analytics_provider = settings.get("analytics_provider", "")
@@ -2061,7 +2130,7 @@ def admin_home_page() -> str:
         <div>
           <input type="hidden" name="remove_logo" value="" data-logo-reset-field>
           <label>Nouveau logo<input type="file" name="logo_file" accept="image/*" data-logo-file></label>
-          <button class="button small secondary" type="button" data-reset-logo>Retour à zéro</button>
+          <button class="button small secondary" type="button" data-reset-logo data-default-src="{e(DEFAULT_SETTINGS['logo_url'])}">Retour à zéro</button>
         </div>
       </div>
       <div class="logo-editor">
@@ -2082,10 +2151,6 @@ def admin_home_page() -> str:
         <h2>Bandeau principal</h2>
         <label>Petit titre<input name="home_hero_eyebrow" value="{e(settings.get('home_hero_eyebrow', ''))}"></label>
         <label>Phrase d’accroche<textarea name="home_intro" rows="3">{e(settings['home_intro'])}</textarea></label>
-        <div class="form-row">
-          <label>Bouton vers l’agenda<input name="home_primary_button_label" value="{e(settings.get('home_primary_button_label', ''))}"></label>
-          <label>Bouton vers le contact<input name="home_secondary_button_label" value="{e(settings.get('home_secondary_button_label', ''))}"></label>
-        </div>
         <p class="form-note">Le grand titre du bandeau reprend le nom du site renseigné plus haut.</p>
       </div>
       <div class="settings-section">
@@ -2304,7 +2369,7 @@ def admin_events_page() -> str:
       <tbody>{table or '<tr><td colspan="3">Aucun événement.</td></tr>'}</tbody>
     </table>
     """
-    return admin_shell("Agenda", content, "/admin/events")
+    return admin_shell("Programmation", content, "/admin/events")
 
 
 def admin_event_edit_page(event_id: int | None = None) -> str:
@@ -2804,64 +2869,6 @@ def save_cropped_article_image(
     return f"/static/uploads/{filename}"
 
 
-def send_contact_email(form: dict[str, str]) -> bool:
-    settings = read_settings()
-    smtp_enabled = settings.get("smtp_enabled") == "1" or bool(os.getenv("VERT_TIGE_SMTP_HOST"))
-    host = os.getenv("VERT_TIGE_SMTP_HOST") or settings.get("smtp_host", "").strip()
-    recipient = CONTACT_TO or settings.get("smtp_to", "").strip() or settings.get("contact_email", "").strip()
-    if not smtp_enabled or not host or not recipient:
-        return False
-
-    raw_port = os.getenv("VERT_TIGE_SMTP_PORT") or settings.get("smtp_port", "587")
-    try:
-        port = int(raw_port)
-    except ValueError:
-        write_log(f"Email non envoyé : port SMTP invalide ({raw_port}).")
-        return False
-    security = normalize_smtp_security(os.getenv("VERT_TIGE_SMTP_SECURITY") or settings.get("smtp_security"))
-    smtp_user = os.getenv("VERT_TIGE_SMTP_USER") or settings.get("smtp_user", "").strip()
-    smtp_password = os.getenv("VERT_TIGE_SMTP_PASSWORD") or settings.get("smtp_password", "")
-    smtp_from = (
-        os.getenv("VERT_TIGE_SMTP_FROM")
-        or settings.get("smtp_from", "").strip()
-        or smtp_user
-        or recipient
-    )
-
-    message = EmailMessage()
-    subject = form.get("subject", "").strip() or "Message depuis le site Vert-Tige"
-    message["Subject"] = subject
-    message["From"] = smtp_from
-    message["To"] = recipient
-    if form.get("email"):
-        message["Reply-To"] = form["email"]
-    message.set_content(
-        "Message reçu depuis le formulaire de contact du site Vert-Tige.\n\n"
-        f"Nom : {form.get('name', '')}\n"
-        f"Email : {form.get('email', '')}\n"
-        f"Sujet : {subject}\n\n"
-        f"{form.get('body', '')}"
-    )
-
-    try:
-        if security == "ssl":
-            with smtplib.SMTP_SSL(host, port, timeout=10) as smtp:
-                if smtp_user:
-                    smtp.login(smtp_user, smtp_password)
-                smtp.send_message(message)
-        else:
-            with smtplib.SMTP(host, port, timeout=10) as smtp:
-                if security == "starttls":
-                    smtp.starttls()
-                if smtp_user:
-                    smtp.login(smtp_user, smtp_password)
-                smtp.send_message(message)
-        return True
-    except (OSError, smtplib.SMTPException) as exc:
-        write_log(f"Email non envoyé : {exc}")
-        return False
-
-
 class VertTigeHandler(BaseHTTPRequestHandler):
     server_version = "VertTige/0.1"
 
@@ -2869,6 +2876,10 @@ class VertTigeHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = self.clean_path(parsed.path)
         query = parse_qs(parsed.query)
+
+        if path == "/favicon.ico":
+            self.serve_static("/static/favicon.ico")
+            return
 
         if path.startswith("/static/"):
             self.serve_static(path)
@@ -2892,7 +2903,11 @@ class VertTigeHandler(BaseHTTPRequestHandler):
             self.respond_html(practical_info_page())
         elif path == "/contact":
             self.respond_html(
-                contact_page(sent=query.get("sent") == ["1"], saved=query.get("saved") == ["1"])
+                contact_page(
+                    sent=query.get("sent") == ["1"],
+                    saved=query.get("saved") == ["1"],
+                    error=query.get("error", [""])[0],
+                )
             )
         elif path == "/mentions-legales":
             self.respond_html(legal_page())
@@ -3031,8 +3046,6 @@ class VertTigeHandler(BaseHTTPRequestHandler):
             "home_about_text",
             "home_image_url",
             "home_hero_eyebrow",
-            "home_primary_button_label",
-            "home_secondary_button_label",
             "home_about_eyebrow",
             "home_about_title",
             "home_events_eyebrow",
@@ -3086,7 +3099,7 @@ class VertTigeHandler(BaseHTTPRequestHandler):
         remove_logo = form.get("remove_logo") == "1"
         remove_home_image = form.get("remove_home_image") == "1"
         remove_instagram_banner_image = form.get("remove_instagram_banner_image") == "1"
-        logo_url = "" if remove_logo else current_logo
+        logo_url = DEFAULT_SETTINGS["logo_url"] if remove_logo else current_logo
         home_image_url = DEFAULT_SETTINGS["home_image_url"] if remove_home_image else current_home_image
         instagram_banner_image_url = (
             DEFAULT_SETTINGS["instagram_banner_image_url"]
@@ -3177,49 +3190,17 @@ class VertTigeHandler(BaseHTTPRequestHandler):
 
     def save_messaging_settings(self) -> None:
         form, _ = self.read_form()
-        allowed = [
-            "contact_email",
-            "smtp_enabled",
-            "smtp_host",
-            "smtp_port",
-            "smtp_security",
-            "smtp_user",
-            "smtp_password",
-            "smtp_from",
-            "smtp_to",
-        ]
+        allowed = ["contact_email"]
         contact_email = form.get("contact_email", "").strip()
         if contact_email and not valid_email(contact_email):
             self.redirect("/admin/messages")
             return
-        if form.get("smtp_enabled") == "1":
-            smtp_to = form.get("smtp_to", "").strip()
-            smtp_from = form.get("smtp_from", "").strip()
-            smtp_port = form.get("smtp_port", "").strip()
-            if (
-                not form.get("smtp_host", "").strip()
-                or not smtp_to
-                or not valid_email(smtp_to)
-                or (smtp_from and not valid_email(smtp_from))
-                or not valid_port(smtp_port)
-            ):
-                self.redirect("/admin/messages")
-                return
-        current_settings = read_settings()
         with connect() as conn:
             for key in allowed:
-                if key == "smtp_enabled":
-                    value = "1" if form.get("smtp_enabled") == "1" else ""
-                elif key == "smtp_security":
-                    value = normalize_smtp_security(form.get("smtp_security"))
-                elif key == "smtp_password" and not form.get("smtp_password", ""):
-                    value = current_settings.get("smtp_password", "")
-                else:
-                    value = form.get(key, "").strip()
                 conn.execute(
                     "INSERT INTO settings (key, value) VALUES (?, ?) "
                     "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-                    (key, value),
+                    (key, form.get(key, "").strip()),
                 )
         self.redirect("/admin/messages")
 
@@ -3413,7 +3394,13 @@ class VertTigeHandler(BaseHTTPRequestHandler):
         email = form.get("email", "").strip()
         body = form.get("body", "").strip()
         if not (name and email and body and valid_email(email)):
-            self.redirect("/contact")
+            self.redirect("/contact?error=validation")
+            return
+        if form.get("website", "").strip():
+            self.redirect("/contact?error=captcha")
+            return
+        if not verify_captcha_answer(form.get("captcha_answer"), form.get("captcha_token")):
+            self.redirect("/contact?error=captcha")
             return
         with connect() as conn:
             conn.execute(
@@ -3429,8 +3416,7 @@ class VertTigeHandler(BaseHTTPRequestHandler):
                     now_iso(),
                 ),
             )
-        email_sent = send_contact_email(form)
-        self.redirect("/contact?sent=1" if email_sent else "/contact?saved=1")
+        self.redirect("/contact?saved=1")
 
     def handle_login(self) -> None:
         form, _ = self.read_form()

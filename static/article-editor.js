@@ -237,11 +237,12 @@
     logoButton?.addEventListener("click", () => {
       if (logoResetField) logoResetField.value = "1";
       if (logoFile) logoFile.value = "";
-      if (logoPreview) {
-        const placeholder = document.createElement("div");
-        placeholder.className = "logo-placeholder";
-        placeholder.textContent = "VT";
-        logoPreview.replaceChildren(placeholder);
+      if (logoPreview && logoButton.dataset.defaultSrc) {
+        const image = document.createElement("img");
+        image.className = "logo-preview";
+        image.src = logoButton.dataset.defaultSrc;
+        image.alt = "Logo par défaut";
+        logoPreview.replaceChildren(image);
       }
     });
 
@@ -332,8 +333,53 @@
     activate(tabs.find((tab) => tab.classList.contains("is-active"))?.dataset.adminHomeTab || tabs[0].dataset.adminHomeTab);
   };
 
+  const initMobileMenu = () => {
+    const button = document.querySelector("[data-mobile-menu-toggle]");
+    const nav = document.querySelector("[data-main-nav]");
+    if (!button || !nav) return;
+
+    const close = () => {
+      button.classList.remove("is-open");
+      button.setAttribute("aria-expanded", "false");
+      nav.classList.remove("is-open");
+    };
+
+    button.addEventListener("click", () => {
+      const isOpen = !button.classList.contains("is-open");
+      button.classList.toggle("is-open", isOpen);
+      button.setAttribute("aria-expanded", String(isOpen));
+      nav.classList.toggle("is-open", isOpen);
+    });
+
+    nav.querySelectorAll("a").forEach((link) => link.addEventListener("click", close));
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") close();
+    });
+  };
+
+  const initFooterReveal = () => {
+    const footer = document.querySelector(".footer-reveal");
+    if (!footer) return;
+    if (!("IntersectionObserver" in window)) {
+      footer.classList.add("is-visible");
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          footer.classList.toggle("is-visible", entry.isIntersecting);
+        });
+      },
+      { threshold: 0.18 }
+    );
+    observer.observe(footer);
+  };
+
   document.querySelectorAll("[data-article-editor]").forEach(initEditor);
   initHomeImageDefaults();
   initRichTextEditor();
   initAdminHomeTabs();
+  initMobileMenu();
+  initFooterReveal();
 })();

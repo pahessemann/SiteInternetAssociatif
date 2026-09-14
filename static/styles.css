@@ -19,6 +19,8 @@
 }
 
 body {
+  display: flex;
+  flex-direction: column;
   margin: 0;
   min-height: 100svh;
   padding-bottom: var(--footer-space);
@@ -26,6 +28,10 @@ body {
   background: var(--paper);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   line-height: 1.5;
+}
+
+main {
+  flex: 1 0 auto;
 }
 
 a {
@@ -49,7 +55,7 @@ button {
   top: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: minmax(210px, auto) minmax(240px, 420px) minmax(0, 1fr);
+  grid-template-columns: minmax(150px, auto) minmax(240px, 420px) minmax(0, 1fr);
   align-items: center;
   gap: 18px;
   min-height: 76px;
@@ -57,6 +63,22 @@ button {
   background: rgba(251, 251, 247, 0.94);
   border-bottom: 1px solid var(--line);
   backdrop-filter: blur(16px);
+}
+
+.admin-site-header {
+  grid-template-columns: minmax(110px, auto) minmax(0, 1fr);
+}
+
+.admin-site-header .main-nav {
+  grid-column: 2;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  overflow-x: auto;
+  padding-bottom: 0;
+}
+
+.admin-site-header .main-nav .nav-link {
+  flex: 0 0 auto;
 }
 
 .mobile-menu-toggle {
@@ -100,6 +122,19 @@ button {
   min-width: 210px;
 }
 
+.brand.has-logo {
+  min-width: 0;
+}
+
+.brand.has-logo .brand-text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
 .brand-mark {
   display: grid;
   width: 42px;
@@ -112,12 +147,12 @@ button {
 }
 
 .brand-logo {
-  width: 46px;
-  height: 46px;
-  border-radius: 8px;
+  width: 138px;
+  height: 52px;
+  border-radius: 0;
   object-fit: contain;
-  background: var(--white);
-  border: 1px solid var(--line);
+  background: transparent;
+  border: 0;
 }
 
 .brand small {
@@ -528,6 +563,15 @@ h3 {
   padding: 18px;
 }
 
+.event-card-image {
+  width: 100%;
+  max-height: 360px;
+  margin: 12px 0 14px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+}
+
 .date-badge {
   display: grid;
   width: 58px;
@@ -750,8 +794,34 @@ h3 {
   gap: 14px;
 }
 
-.mobile-program-list {
-  display: none;
+.program-list {
+  display: grid;
+  gap: 16px;
+}
+
+.search-results {
+  display: grid;
+  gap: 12px;
+}
+
+.search-result-card {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+}
+
+.search-result-card .meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.search-result-card .meta strong {
+  color: var(--brick);
+  text-transform: uppercase;
+  letter-spacing: 0;
 }
 
 .article-page {
@@ -1220,9 +1290,15 @@ h3 {
 }
 
 .admin-tabs {
+  flex-wrap: nowrap;
+  overflow-x: auto;
   margin-bottom: 22px;
   padding-bottom: 18px;
   border-bottom: 1px solid var(--line);
+}
+
+.admin-tabs .nav-link {
+  flex: 0 0 auto;
 }
 
 .metrics {
@@ -1428,6 +1504,11 @@ h3 {
   color: var(--muted);
 }
 
+.empty-state.compact {
+  padding: 14px;
+  font-size: 0.92rem;
+}
+
 .instagram-footer-banner {
   padding: 48px 5vw 34px;
   background: #f7f4ea;
@@ -1495,21 +1576,27 @@ h3 {
 
 .site-footer {
   position: relative;
+  flex-shrink: 0;
   z-index: 10;
   display: grid;
   grid-template-columns: minmax(220px, 1fr) auto minmax(220px, 1fr);
   align-items: center;
   gap: 18px;
-  min-height: 108px;
-  padding: 20px 5vw;
+  min-height: 86px;
+  padding: 14px 5vw;
   color: #dbe8de;
   background: #14251b;
 }
 
 .footer-reveal {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transition: opacity 420ms ease, transform 420ms ease;
+}
+
+body.footer-reveal-watch .footer-reveal:not(.is-visible) {
   opacity: 0;
   transform: translateY(26px) scale(0.99);
-  transition: opacity 420ms ease, transform 420ms ease;
 }
 
 .footer-reveal.is-visible {
@@ -1820,6 +1907,18 @@ h3 {
     padding-bottom: 0;
   }
 
+  .admin-site-header {
+    grid-template-columns: minmax(96px, auto) minmax(0, 1fr);
+  }
+
+  .admin-site-header .main-nav {
+    grid-column: 2;
+    flex-wrap: nowrap;
+    align-self: center;
+    justify-content: flex-end;
+    overflow-x: auto;
+  }
+
   .admin-tabs {
     flex-wrap: nowrap;
     align-self: stretch;
@@ -1911,7 +2010,7 @@ h3 {
 
   .site-header {
     position: sticky;
-    grid-template-columns: auto auto minmax(0, 1fr);
+    grid-template-columns: auto minmax(96px, auto) minmax(0, 1fr);
     gap: 10px;
     min-height: 0;
     padding: 10px 4vw;
@@ -1926,9 +2025,16 @@ h3 {
     gap: 0;
   }
 
-  .brand-mark,
+  .brand-mark {
+    display: grid;
+    width: 40px;
+    height: 40px;
+  }
+
   .brand-logo {
-    display: none;
+    display: block;
+    width: 112px;
+    height: 42px;
   }
 
   .brand span {
@@ -1970,9 +2076,16 @@ h3 {
   .main-nav {
     grid-column: 1 / -1;
     display: none;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
     gap: 8px;
     padding-top: 8px;
+  }
+
+  .admin-site-header .main-nav {
+    grid-column: 1 / -1;
+    flex-wrap: nowrap;
+    justify-content: stretch;
+    overflow-x: visible;
   }
 
   .main-nav.is-open {
@@ -1985,12 +2098,15 @@ h3 {
     align-items: center;
     justify-content: center;
     min-width: 0;
+    min-height: 36px;
+    padding: 8px 10px;
+    font-size: 0.94rem;
     white-space: normal;
     line-height: 1.2;
   }
 
   .main-nav .nav-link:last-child {
-    grid-column: 1 / -1;
+    grid-column: auto;
   }
 
   @keyframes menuDrop {
@@ -2078,19 +2194,6 @@ h3 {
   .search-row .button {
     justify-content: center;
     width: 100%;
-  }
-
-  .calendar-toolbar {
-    display: none;
-  }
-
-  .calendar {
-    display: none;
-  }
-
-  .mobile-program-list {
-    display: grid;
-    gap: 16px;
   }
 
   .admin-table {

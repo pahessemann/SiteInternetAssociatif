@@ -360,6 +360,12 @@
   const initFooterReveal = () => {
     const footer = document.querySelector(".footer-reveal");
     if (!footer) return;
+    const startsVisible = footer.getBoundingClientRect().top < window.innerHeight;
+    if (startsVisible) {
+      footer.classList.add("is-visible");
+      return;
+    }
+    document.body.classList.add("footer-reveal-watch");
     if (!("IntersectionObserver" in window)) {
       footer.classList.add("is-visible");
       return;

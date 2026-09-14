@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import calendar
 import base64
 import binascii
 import hashlib
@@ -14,7 +13,6 @@ import secrets
 import sqlite3
 import time
 import unicodedata
-from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from email.parser import BytesParser
@@ -62,7 +60,6 @@ MONTHS = [
     "novembre",
     "décembre",
 ]
-WEEKDAYS = ["lun", "mar", "mer", "jeu", "ven", "sam", "dim"]
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 MAX_UPLOAD_BYTES = 8 * 1024 * 1024
 PHOTO_VISIBILITY_LABELS = {
@@ -101,13 +98,13 @@ DEFAULT_SETTINGS = {
     "home_articles_title": "Articles mis en avant",
     "home_articles_link_label": "Tous les articles",
     "home_articles_empty": "Les articles mis en avant apparaîtront ici.",
-    "home_photos_eyebrow": "Banque de photos",
+    "home_photos_eyebrow": "Galerie",
     "home_photos_title": "Images du jardin",
     "home_photos_link_label": "Ouvrir la galerie",
     "home_photos_empty_title": "La galerie est prête",
     "home_photos_empty_text": "Les premières photos ajoutées depuis l’administration apparaîtront ici.",
     "contact_email": "contact@vert-tige.local",
-    "logo_url": "/static/logo-vert-tige.png",
+    "logo_url": "/static/logo-vert-tige-detoure.png",
     "facebook_url": "",
     "instagram_url": "",
     "footer_address": "37, rue de Coulmiers – 75014 Paris",
@@ -328,6 +325,147 @@ def text_content(value: str | None) -> str:
     return html.unescape(re.sub(r"<[^>]*>", " ", value or ""))
 
 
+TEXT_REPAIR_REPLACEMENTS = {
+    "? partir": "À partir",
+    " ? partir": " À partir",
+    "� partir": "À partir",
+    " � partir": " À partir",
+    "v?rifier": "vérifier",
+    "V?rifier": "Vérifier",
+    "premi?re": "première",
+    "Premi?re": "Première",
+    "Deuxi?me": "Deuxième",
+    "deuxi?me": "deuxième",
+    "Troisi?me": "Troisième",
+    "troisi?me": "troisième",
+    "Troisi�me": "Troisième",
+    "troisi�me": "troisième",
+    "Quatri?me": "Quatrième",
+    "quatri?me": "quatrième",
+    "Quatri�me": "Quatrième",
+    "quatri�me": "quatrième",
+    "pr?paration": "préparation",
+    "Pr?paration": "Préparation",
+    "compl?ter": "compléter",
+    "Compl?ter": "Compléter",
+    "rang?e": "rangée",
+    "Rang?e": "Rangée",
+    "rang�e": "rangée",
+    "Rang�e": "Rangée",
+    "contr?ler": "contrôler",
+    "Contr?ler": "Contrôler",
+    "contr�ler": "contrôler",
+    "Contr�ler": "Contrôler",
+    "hi?rarchie": "hiérarchie",
+    "Hi?rarchie": "Hiérarchie",
+    "hi�rarchie": "hiérarchie",
+    "Hi�rarchie": "Hiérarchie",
+    "r?colte": "récolte",
+    "R?colte": "Récolte",
+    "r�colte": "récolte",
+    "R�colte": "Récolte",
+    "partag?e": "partagée",
+    "Partag?e": "Partagée",
+    "partag�e": "partagée",
+    "Partag�e": "Partagée",
+    " ? tester": " à tester",
+    " � tester": " à tester",
+    "l?affichage": "l’affichage",
+    "L?affichage": "L’affichage",
+    "l?administration": "l’administration",
+    "L?administration": "L’administration",
+    "l?association": "l’association",
+    "L?association": "L’association",
+    "l?accueil": "l’accueil",
+    "L?accueil": "L’accueil",
+    "d?accueil": "d’accueil",
+    "D?accueil": "D’accueil",
+    "d?administration": "d’administration",
+    "D?administration": "D’administration",
+    "d?une": "d’une",
+    "D?une": "D’une",
+    "d?un": "d’un",
+    "D?un": "D’un",
+    "peut ?tre": "peut être",
+    "doit ?tre": "doit être",
+    "?tre": "être",
+    "�tre": "être",
+    "?tait": "était",
+    "supprim?e": "supprimée",
+    "supprim?": "supprimé",
+    "termin?e": "terminée",
+    "termin?": "terminé",
+    "termin�e": "terminée",
+    "termin�": "terminé",
+    "valid?e": "validée",
+    "valid?": "validé",
+    "cr?er": "créer",
+    "Cr?er": "Créer",
+    "cr?ation": "création",
+    "Cr?ation": "Création",
+    "cat?gorie": "catégorie",
+    "Cat?gorie": "Catégorie",
+    "cat?gories": "catégories",
+    "Cat?gories": "Catégories",
+    "r?f?rencement": "référencement",
+    "R?f?rencement": "Référencement",
+    "g?n?ral": "général",
+    "G?n?ral": "Général",
+    "d?j?": "déjà",
+    "D?j?": "Déjà",
+    "tr?s": "très",
+    "Tr?s": "Très",
+    "apr?s": "après",
+    "Apr?s": "Après",
+    "o? se": "où se",
+    "O? se": "Où se",
+}
+
+
+def repair_text_encoding(value: str | None) -> str | None:
+    if value is None:
+        return None
+    repaired = value
+    if "Ã" in repaired or "Â" in repaired or "�" in repaired:
+        try:
+            candidate = repaired.encode("latin1").decode("utf-8")
+        except UnicodeError:
+            candidate = repaired
+        if candidate.count("�") <= repaired.count("�"):
+            repaired = candidate
+        repaired = repaired.replace("\u00a0", " ")
+    for broken, fixed in TEXT_REPAIR_REPLACEMENTS.items():
+        repaired = repaired.replace(broken, fixed)
+    return repaired
+
+
+def repair_stored_text_encoding(conn: sqlite3.Connection) -> None:
+    for table in ["settings", "events", "articles", "photos", "photo_albums", "messages", "admin_users"]:
+        columns = [
+            row["name"]
+            for row in conn.execute(f"PRAGMA table_info({table})")
+            if row["type"].upper().startswith("TEXT")
+        ]
+        if not columns:
+            continue
+        rows = conn.execute(
+            f"SELECT rowid AS _rowid, {', '.join(columns)} FROM {table}"
+        ).fetchall()
+        for row in rows:
+            updates = {
+                column: repair_text_encoding(row[column])
+                for column in columns
+                if repair_text_encoding(row[column]) != row[column]
+            }
+            if not updates:
+                continue
+            assignments = ", ".join(f"{column} = ?" for column in updates)
+            conn.execute(
+                f"UPDATE {table} SET {assignments} WHERE rowid = ?",
+                (*updates.values(), row["_rowid"]),
+            )
+
+
 def format_date(value: str | None) -> str:
     if not value:
         return ""
@@ -472,12 +610,6 @@ def existing_photo_upload_url(value: str | None) -> str:
     with connect() as conn:
         row = conn.execute("SELECT id FROM photos WHERE filename = ?", (filename,)).fetchone()
     return image_url if row else ""
-
-
-def calendar_event_chip(row: sqlite3.Row) -> str:
-    time_text = format_time(row["start_time"])
-    time_html = f"<span>{e(time_text)}</span>" if time_text else ""
-    return f'<a href="#event-{row["id"]}">{time_html}{e(row["title"])}</a>'
 
 
 def normalize_role(value: str | None, default: str = "admin") -> str:
@@ -654,6 +786,153 @@ def filter_article_rows(rows: list[sqlite3.Row], query: str) -> list[sqlite3.Row
     return [row for _, _, row in matches]
 
 
+def content_search_score(title: str, body: str, tokens: list[str], phrase: str) -> int:
+    if not tokens:
+        return 0
+    normalized_title = normalize_search_text(title)
+    normalized_body = normalize_search_text(body)
+    score = 0
+    if phrase and phrase in normalized_title:
+        score += 90
+    elif phrase and phrase in normalized_body:
+        score += 35
+    for token in tokens:
+        if token in normalized_title:
+            score += 45
+            if normalized_title.startswith(token):
+                score += 12
+        if token in normalized_body:
+            score += 14
+    return score
+
+
+def site_search_results(query: str) -> list[dict[str, str | int]]:
+    tokens = search_tokens(query)
+    if not tokens:
+        return []
+    phrase = normalize_search_text(query)
+    settings = read_settings()
+    results: list[dict[str, str | int]] = []
+
+    def add_result(kind: str, title: str, summary: str, url: str, date_value: str = "") -> None:
+        score = content_search_score(title, summary, tokens, phrase)
+        if score <= 0:
+            return
+        results.append(
+            {
+                "kind": kind,
+                "title": title,
+                "summary": compact_text(summary, title, 220),
+                "url": url,
+                "date": date_value,
+                "score": score,
+            }
+        )
+
+    with connect() as conn:
+        articles = conn.execute(
+            "SELECT * FROM articles WHERE published = 1 ORDER BY created_at DESC"
+        ).fetchall()
+        events = conn.execute(
+            "SELECT * FROM events ORDER BY starts_on DESC, start_time DESC"
+        ).fetchall()
+        photos = conn.execute(
+            """
+            SELECT p.*, a.slug AS album_slug, a.name AS album_name
+            FROM photos p
+            LEFT JOIN photo_albums a ON a.id = p.album_id
+            WHERE p.visibility IN ('gallery', 'both')
+            ORDER BY p.created_at DESC
+            """
+        ).fetchall()
+
+    for row in articles:
+        add_result(
+            "Article",
+            row["title"],
+            " ".join([row["summary"] or "", row["body"] or ""]),
+            f"/articles/{quote(row['slug'])}",
+            row["created_at"][:10],
+        )
+    for row in events:
+        add_result(
+            "Programmation",
+            row["title"],
+            " ".join(
+                [
+                    event_schedule(row),
+                    event_place(row),
+                    row["description"] or "",
+                ]
+            ),
+            f"/agenda#event-{row['id']}",
+            row["starts_on"],
+        )
+    for row in photos:
+        album_path = f"?album={quote(row['album_slug'])}" if row["album_slug"] else ""
+        add_result(
+            "Galerie",
+            row["title"] or "Photo du jardin",
+            " ".join([row["caption"] or "", row["album_name"] or ""]),
+            f"/galerie{album_path}",
+            row["created_at"][:10],
+        )
+
+    add_result(
+        "Page",
+        "Accueil",
+        " ".join(
+            [
+                settings.get("home_intro", ""),
+                settings.get("home_about_title", ""),
+                settings.get("home_about_text", ""),
+            ]
+        ),
+        "/",
+    )
+    add_result(
+        "Page",
+        "Infos pratiques",
+        " ".join(
+            [
+                settings.get("practical_title", ""),
+                settings.get("practical_intro", ""),
+                settings.get("practical_address", ""),
+                settings.get("practical_bus", ""),
+                settings.get("practical_metro", ""),
+                settings.get("practical_tram", ""),
+                settings.get("practical_opening", ""),
+            ]
+        ),
+        "/infos-pratiques",
+    )
+    add_result("Page", "Contact", settings.get("contact_email", ""), "/contact")
+    add_result(
+        "Page",
+        "Mentions légales",
+        " ".join([settings.get("legal_publisher", ""), settings.get("legal_text", "")]),
+        "/mentions-legales",
+    )
+
+    results.sort(key=lambda item: (int(item["score"]), str(item["date"])), reverse=True)
+    return results
+
+
+def search_result_card(result: dict[str, str | int]) -> str:
+    date_html = (
+        f'<span>{format_date(str(result["date"]))}</span>'
+        if result.get("date")
+        else ""
+    )
+    return f"""
+    <article class="search-result-card">
+      <p class="meta"><strong>{e(str(result["kind"]))}</strong>{date_html}</p>
+      <h3><a href="{e(str(result["url"]))}">{e(str(result["title"]))}</a></h3>
+      <p>{e(str(result["summary"]))}</p>
+    </article>
+    """
+
+
 def contact_mailto_url(settings: dict[str, str], message: sqlite3.Row | None) -> str:
     recipient = (settings.get("contact_email") or "").strip()
     if not message or not valid_email(recipient):
@@ -789,7 +1068,7 @@ def website_schema(settings: dict[str, str]) -> dict[str, object]:
         "description": compact_text(settings.get("seo_description"), settings.get("home_intro")),
         "potentialAction": {
             "@type": "SearchAction",
-            "target": absolute_url("/articles?q={search_term_string}", settings),
+            "target": absolute_url("/recherche?q={search_term_string}", settings),
             "query-input": "required name=search_term_string",
         },
     }
@@ -822,6 +1101,8 @@ def event_schema(row: sqlite3.Row, settings: dict[str, str]) -> dict[str, object
             "address": row["address"] or "Paris 14",
         },
     }
+    if row["image_url"]:
+        schema["image"] = absolute_url(row["image_url"], settings)
     return schema
 
 
@@ -912,6 +1193,7 @@ def init_db() -> None:
                 end_time TEXT,
                 location TEXT,
                 address TEXT,
+                image_url TEXT,
                 description TEXT,
                 created_at TEXT NOT NULL
             );
@@ -978,6 +1260,7 @@ def init_db() -> None:
                 "start_time": "TEXT",
                 "end_time": "TEXT",
                 "address": "TEXT",
+                "image_url": "TEXT",
             },
         )
         ensure_columns(
@@ -1072,6 +1355,15 @@ def init_db() -> None:
             "UPDATE settings SET value = ? WHERE key = 'logo_url' AND COALESCE(value, '') = ''",
             (DEFAULT_SETTINGS["logo_url"],),
         )
+        conn.execute(
+            "UPDATE settings SET value = ? WHERE key = 'logo_url' AND value = ?",
+            (DEFAULT_SETTINGS["logo_url"], "/static/logo-vert-tige.png"),
+        )
+        conn.execute(
+            "UPDATE settings SET value = ? WHERE key = 'home_photos_eyebrow' AND value = ?",
+            ("Galerie", "Banque de photos"),
+        )
+        repair_stored_text_encoding(conn)
 
         article_count = conn.execute("SELECT COUNT(*) AS count FROM articles").fetchone()["count"]
         if article_count == 0:
@@ -1122,8 +1414,8 @@ def init_db() -> None:
             conn.executemany(
                 """
                 INSERT INTO events
-                    (title, starts_on, ends_on, start_time, end_time, location, address, description, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (title, starts_on, ends_on, start_time, end_time, location, address, image_url, description, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 [
                     (
@@ -1134,6 +1426,7 @@ def init_db() -> None:
                         "12:00",
                         "Jardin Vert-Tige",
                         "Paris 14",
+                        "",
                         "Point collectif sur le compost, les apports et les bons gestes à transmettre.",
                         now_iso(),
                     ),
@@ -1145,6 +1438,7 @@ def init_db() -> None:
                         "12:30",
                         "Parcelles communes",
                         "Paris 14",
+                        "",
                         "Plantations de saison et entretien des bacs partagés.",
                         now_iso(),
                     ),
@@ -1288,13 +1582,15 @@ def layout(
         if logo_url
         else '<span class="brand-mark">VT</span>'
     )
+    brand_class = "brand has-logo" if logo_url else "brand"
+    header_class = "site-header admin-site-header" if is_admin_area else "site-header"
     header_search = (
         ""
         if is_admin_area
         else f"""
-    <form class="header-search" method="get" action="/articles" role="search" aria-label="Rechercher dans les articles">
-      <label class="visually-hidden" for="header-article-search">Rechercher dans les articles</label>
-      <input id="header-article-search" type="search" name="q" placeholder="Rechercher un article" autocomplete="off">
+    <form class="header-search" method="get" action="/recherche" role="search" aria-label="Rechercher sur le site">
+      <label class="visually-hidden" for="header-site-search">Rechercher sur le site</label>
+      <input id="header-site-search" type="search" name="q" placeholder="Rechercher sur le site" autocomplete="off">
       <button type="submit" aria-label="Lancer la recherche">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="{search_path}"></path></svg>
       </button>
@@ -1310,7 +1606,7 @@ def layout(
             nav_link("/contact", "Contact", current_path),
         ]
     )
-    footer_class = "site-footer footer-reveal" if current_path == "/" else "site-footer"
+    footer_class = "site-footer footer-reveal"
     return f"""<!doctype html>
 <html lang="fr">
 <head>
@@ -1327,13 +1623,13 @@ def layout(
   {tracking_head}
 </head>
 <body>
-  <header class="site-header">
+  <header class="{header_class}">
     <button class="mobile-menu-toggle" type="button" aria-label="Ouvrir le menu" aria-controls="main-nav" aria-expanded="false" data-mobile-menu-toggle>
       <span></span><span></span><span></span>
     </button>
-    <a class="brand" href="/">
+    <a class="{brand_class}" href="/" aria-label="{e(site_title)}">
       {brand_mark}
-      <span><strong>{e(site_title)}</strong><small>{e(settings["tagline"])}</small></span>
+      <span class="brand-text"><strong>{e(site_title)}</strong><small>{e(settings["tagline"])}</small></span>
     </a>
     {header_search}
     <nav class="main-nav" id="main-nav" aria-label="Navigation principale" data-main-nav>{nav}</nav>
@@ -1378,6 +1674,11 @@ def article_card(row: sqlite3.Row) -> str:
 
 
 def event_card(row: sqlite3.Row) -> str:
+    image_html = (
+        f'<img class="event-card-image" src="{e(row["image_url"])}" alt="">'
+        if row["image_url"]
+        else ""
+    )
     return f"""
     <article class="card event-card" id="event-{row['id']}">
       <div class="date-badge"><strong>{date.fromisoformat(row["starts_on"]).day}</strong><span>{MONTHS[date.fromisoformat(row["starts_on"]).month][:3]}</span></div>
@@ -1385,6 +1686,7 @@ def event_card(row: sqlite3.Row) -> str:
         <p class="meta">{event_schedule(row)}</p>
         <h3>{e(row["title"])}</h3>
         <p class="place">{e(event_place(row))}</p>
+        {image_html}
         {paragraphs(row["description"])}
       </div>
     </article>"""
@@ -1503,79 +1805,13 @@ def render_photo_strip(rows: list[sqlite3.Row], settings: dict[str, str]) -> str
     return f'<div class="photo-grid compact">{items}</div>'
 
 
-def parse_month(query: dict[str, list[str]]) -> date:
-    raw = query.get("mois", [date.today().strftime("%Y-%m")])[0]
-    try:
-        year, month = raw.split("-", 1)
-        return date(int(year), int(month), 1)
-    except (ValueError, TypeError):
-        today = date.today()
-        return date(today.year, today.month, 1)
-
-
-def add_month(value: date, delta: int) -> date:
-    month = value.month + delta
-    year = value.year + (month - 1) // 12
-    month = (month - 1) % 12 + 1
-    return date(year, month, 1)
-
-
-def render_calendar_month(current: date, events: list[sqlite3.Row]) -> str:
-    events_by_day: dict[int, list[sqlite3.Row]] = defaultdict(list)
-    for event in events:
-        try:
-            starts = date.fromisoformat(event["starts_on"])
-        except ValueError:
-            continue
-        if starts.year == current.year and starts.month == current.month:
-            events_by_day[starts.day].append(event)
-
-    weeks = calendar.Calendar(firstweekday=0).monthdatescalendar(current.year, current.month)
-    head = "".join(f"<span>{day}</span>" for day in WEEKDAYS)
-    rows = []
-    for week in weeks:
-        cells = []
-        for day in week:
-            muted = " muted" if day.month != current.month else ""
-            chips = "".join(
-                calendar_event_chip(event)
-                for event in events_by_day.get(day.day, [])
-                if day.month == current.month
-            )
-            cells.append(
-                f"""
-                <div class="calendar-cell{muted}">
-                  <span class="day-number">{day.day}</span>
-                  <div class="calendar-events">{chips}</div>
-                </div>
-                """
-            )
-        rows.append(f'<div class="calendar-row">{"".join(cells)}</div>')
-    return f'<div class="calendar"><div class="calendar-weekdays">{head}</div>{"".join(rows)}</div>'
-
-
 def agenda_page(query: dict[str, list[str]]) -> str:
     settings = read_settings()
-    current = parse_month(query)
-    start = current.isoformat()
-    next_month = add_month(current, 1)
-    month_end = (next_month - timedelta(days=1)).isoformat()
-    today = date.today().isoformat()
     with connect() as conn:
-        month_events = conn.execute(
-            "SELECT * FROM events WHERE starts_on BETWEEN ? AND ? ORDER BY starts_on, start_time",
-            (start, month_end),
-        ).fetchall()
-        upcoming = conn.execute(
-            "SELECT * FROM events WHERE starts_on >= ? ORDER BY starts_on, start_time LIMIT 20",
-            (today,),
-        ).fetchall()
-        recent_program = conn.execute(
+        program = conn.execute(
             "SELECT * FROM events ORDER BY created_at DESC, starts_on DESC LIMIT 20"
         ).fetchall()
 
-    prev_link = add_month(current, -1).strftime("%Y-%m")
-    next_link = add_month(current, 1).strftime("%Y-%m")
     body = f"""
     <section class="page-hero compact-hero">
       <p class="eyebrow">Programmation</p>
@@ -1583,39 +1819,69 @@ def agenda_page(query: dict[str, list[str]]) -> str:
       <p>Les ateliers, permanences et moments collectifs de Vert-Tige.</p>
     </section>
     <section class="section">
-      <div class="calendar-toolbar">
-        <a class="button secondary" href="/agenda?mois={prev_link}">Mois précédent</a>
-        <h2>{MONTHS[current.month].capitalize()} {current.year}</h2>
-        <a class="button secondary" href="/agenda?mois={next_link}">Mois suivant</a>
-      </div>
-      {render_calendar_month(current, month_events)}
-      <div class="mobile-program-list">
+      <div class="program-list">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">Dernières annonces</p>
-            <h2>Programmation récente</h2>
+            <p class="eyebrow">Prochains rendez-vous</p>
+            <h2>À venir</h2>
           </div>
         </div>
-        <div class="list-stack">{"".join(event_card(row) for row in recent_program) or empty_state("Aucun événement publié.")}</div>
+        <div class="list-stack">{"".join(event_card(row) for row in program) or empty_state("Aucun événement publié.")}</div>
       </div>
-    </section>
-    <section class="section muted-band">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">À venir</p>
-          <h2>Prochains événements</h2>
-        </div>
-      </div>
-      <div class="list-stack">{"".join(event_card(row) for row in upcoming) or empty_state("Aucun événement à venir.")}</div>
     </section>
     """
     return layout(
         "Programmation",
         body,
         "/agenda",
-        description="Calendrier des ateliers, permanences et événements du jardin partagé Vert-Tige à Paris 14.",
+        description="Programmation des ateliers, permanences et événements du jardin partagé Vert-Tige à Paris 14.",
         image_url=settings.get("seo_image_url"),
-        structured_data=[event_schema(row, settings) for row in upcoming],
+        structured_data=[event_schema(row, settings) for row in program],
+    )
+
+
+def search_page(query: dict[str, list[str]] | None = None) -> str:
+    query = query or {}
+    search_query = query.get("q", [""])[0].strip()
+    results = site_search_results(search_query) if search_query else []
+    result_count = len(results)
+    result_label = "résultat trouvé" if result_count == 1 else "résultats trouvés"
+    clear_link = '<a class="button secondary" href="/recherche">Effacer</a>' if search_query else ""
+    summary = (
+        f'<p class="search-summary">{result_count} {result_label} pour <strong>{e(search_query)}</strong>.</p>'
+        if search_query
+        else '<p class="search-summary">Recherche dans les articles, la programmation, la galerie et les pages du site.</p>'
+    )
+    empty = (
+        empty_state(f"Aucun résultat ne correspond à « {search_query} ».")
+        if search_query and not results
+        else ""
+    )
+    body = f"""
+    <section class="page-hero compact-hero">
+      <p class="eyebrow">Recherche</p>
+      <h1>Rechercher sur le site</h1>
+      <p>Retrouver une actualité, un rendez-vous, une photo ou une information pratique.</p>
+    </section>
+    <section class="section">
+      <form class="article-search site-search" method="get" action="/recherche" role="search" aria-label="Rechercher sur le site">
+        <label for="site-search">Recherche globale</label>
+        <div class="search-row">
+          <input id="site-search" type="search" name="q" value="{e(search_query)}" placeholder="Vide-greniers, compost, horaires..." autocomplete="off">
+          <button class="button primary" type="submit">Rechercher</button>
+          {clear_link}
+        </div>
+      </form>
+      {summary}
+      <div class="search-results">{"".join(search_result_card(result) for result in results) or empty}</div>
+    </section>
+    """
+    return layout(
+        "Recherche",
+        body,
+        "/recherche",
+        description="Recherche globale sur le site Vert-Tige.",
+        indexable=False,
     )
 
 
@@ -1765,7 +2031,7 @@ def gallery_page(query: dict[str, list[str]] | None = None) -> str:
     body = f"""
     <section class="page-hero compact-hero">
       <p class="eyebrow">Photos</p>
-      <h1>{e(current_album['name']) if current_album else 'Banque de photos'}</h1>
+      <h1>{e(current_album['name']) if current_album else 'Galerie'}</h1>
       <p>Un espace pour conserver et partager les images du jardin.</p>
     </section>
     <section class="section">
@@ -2326,9 +2592,25 @@ def event_form(row: sqlite3.Row | None = None) -> str:
     end_time = row["end_time"] if row else ""
     location = row["location"] if row else "Jardin Vert-Tige"
     address = row["address"] if row else ""
+    image_url = row["image_url"] if row else ""
     description = row["description"] if row else ""
+    with connect() as conn:
+        photos = conn.execute(
+            """
+            SELECT p.*, a.name AS album_name
+            FROM photos p
+            LEFT JOIN photo_albums a ON a.id = p.album_id
+            ORDER BY p.created_at DESC
+            """
+        ).fetchall()
+    photo_options = photo_library_options(photos, image_url)
+    current_preview = (
+        f'<img class="cover-preview" src="{e(image_url)}" alt="Image ou affiche actuelle">'
+        if image_url
+        else '<div class="empty-state compact">Aucune image associée.</div>'
+    )
     return f"""
-    <form class="form-panel" method="post" action="{action}">
+    <form class="form-panel" method="post" action="{action}" enctype="multipart/form-data">
       <label>Titre<input name="title" value="{e(title)}" required></label>
       <div class="form-row">
         <label>Date de début<input type="date" name="starts_on" value="{e(starts)}" required></label>
@@ -2340,6 +2622,26 @@ def event_form(row: sqlite3.Row | None = None) -> str:
       </div>
       <label>Lieu<input name="location" value="{e(location)}"></label>
       <label>Adresse<input name="address" value="{e(address)}" placeholder="Ex. 12 rue des Plantes, 75014 Paris"></label>
+      <div class="image-picker">
+        <div>
+          <p class="field-label">Photo ou affiche</p>
+          {current_preview}
+        </div>
+        <div class="image-picker-controls">
+          <input type="hidden" name="current_image_url" value="{e(image_url)}">
+          <label>Choisir dans la galerie
+            <select name="event_image_choice">
+              <option value="">Conserver l’image actuelle</option>
+              <option value="__none__">Aucune image</option>
+              {photo_options}
+            </select>
+          </label>
+          <label>Ou envoyer une nouvelle image
+            <input type="file" name="event_image" accept="image/*">
+          </label>
+          <p class="form-note">Une image envoyée ici sera ajoutée à la galerie et associée à l’événement.</p>
+        </div>
+      </div>
       <label>Description<textarea name="description" rows="6">{e(description)}</textarea></label>
       <button class="button primary" type="submit">Enregistrer</button>
     </form>
@@ -2893,6 +3195,8 @@ class VertTigeHandler(BaseHTTPRequestHandler):
             self.respond_text(sitemap_xml(), content_type="application/xml; charset=utf-8")
         elif path == "/agenda":
             self.respond_html(agenda_page(query))
+        elif path == "/recherche":
+            self.respond_html(search_page(query))
         elif path == "/articles":
             self.respond_html(articles_page(query))
         elif path.startswith("/articles/"):
@@ -3205,7 +3509,7 @@ class VertTigeHandler(BaseHTTPRequestHandler):
         self.redirect("/admin/messages")
 
     def save_event(self, event_id: int | None = None) -> None:
-        form, _ = self.read_form()
+        form, files = self.read_form()
         title = form.get("title", "").strip()
         starts_on = form.get("starts_on", "").strip()
         ends_on = form.get("ends_on", "").strip()
@@ -3224,23 +3528,44 @@ class VertTigeHandler(BaseHTTPRequestHandler):
         if ends_on and date.fromisoformat(ends_on) < date.fromisoformat(starts_on):
             self.redirect("/admin/events")
             return
-        values = (
-            title,
-            starts_on,
-            ends_on,
-            start_time,
-            end_time,
-            form.get("location", "").strip(),
-            form.get("address", "").strip(),
-            form.get("description", "").strip(),
-        )
         with connect() as conn:
+            image_url = form.get("current_image_url", "").strip()
+            image_choice = form.get("event_image_choice", "").strip()
+            if image_choice == "__none__":
+                image_url = ""
+            elif image_choice:
+                image_url = existing_photo_upload_url(image_choice) or image_url
+            upload = files.get("event_image")
+            if upload and upload.data:
+                try:
+                    uploaded_url = save_photo_upload(
+                        conn,
+                        upload,
+                        title=f"Affiche programmation : {title}",
+                        caption=form.get("description", "").strip(),
+                        visibility="both",
+                    )
+                except ValueError:
+                    uploaded_url = None
+                if uploaded_url:
+                    image_url = uploaded_url
+            values = (
+                title,
+                starts_on,
+                ends_on,
+                start_time,
+                end_time,
+                form.get("location", "").strip(),
+                form.get("address", "").strip(),
+                image_url,
+                form.get("description", "").strip(),
+            )
             if event_id is None:
                 conn.execute(
                     """
                     INSERT INTO events
-                        (title, starts_on, ends_on, start_time, end_time, location, address, description, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        (title, starts_on, ends_on, start_time, end_time, location, address, image_url, description, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (*values, now_iso()),
                 )
@@ -3249,7 +3574,7 @@ class VertTigeHandler(BaseHTTPRequestHandler):
                     """
                     UPDATE events
                     SET title = ?, starts_on = ?, ends_on = ?, start_time = ?, end_time = ?,
-                        location = ?, address = ?, description = ?
+                        location = ?, address = ?, image_url = ?, description = ?
                     WHERE id = ?
                     """,
                     (*values, event_id),
@@ -3466,6 +3791,10 @@ class VertTigeHandler(BaseHTTPRequestHandler):
                 conn.execute(
                     "UPDATE articles SET image_url = ? WHERE image_url = ?",
                     ("/static/hero-garden.png", f"/static/uploads/{row['filename']}"),
+                )
+                conn.execute(
+                    "UPDATE events SET image_url = '' WHERE image_url = ?",
+                    (f"/static/uploads/{row['filename']}",),
                 )
                 path = UPLOAD_DIR / row["filename"]
                 if path.exists() and path.is_file():

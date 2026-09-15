@@ -13,6 +13,7 @@ import secrets
 import sqlite3
 import time
 import unicodedata
+import zipfile
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from email.parser import BytesParser
@@ -29,8 +30,10 @@ DATA_DIR = BASE_DIR / "data"
 STATIC_DIR = BASE_DIR / "static"
 UPLOAD_DIR = STATIC_DIR / "uploads"
 DB_PATH = DATA_DIR / "vert_tige.sqlite3"
+BACKUP_DIR = DATA_DIR / "backups"
 LOG_PATH = BASE_DIR / "server.log"
 CSP_NONCE_PLACEHOLDER = "__VERT_TIGE_CSP_NONCE__"
+BACKUP_NAME_RE = re.compile(r"^vert-tige-backup-\d{8}-\d{6}\.zip$")
 
 HOST = os.getenv("VERT_TIGE_HOST", "127.0.0.1")
 PORT = int(os.getenv("VERT_TIGE_PORT", "8000"))
@@ -166,6 +169,104 @@ def write_log(message: str) -> None:
             file.write(line + "\n")
     except OSError:
         pass
+
+
+def file_size_label(size: int) -> str:
+    units = ["o", "Ko", "Mo", "Go"]
+    value = float(size)
+    for unit in units:
+        if value < 1024 or unit == units[-1]:
+            if unit == "o":
+                return f"{int(value)} {unit}"
+            return f"{value:.1f} {unit}".replace(".", ",")
+        value /= 1024
+    return f"{size} o"
+
+
+def backup_path_from_name(filename: str) -> Path | None:
+    if not BACKUP_NAME_RE.fullmatch(filename):
+        return None
+    path = (BACKUP_DIR / filename).resolve()
+    if not str(path).startswith(str(BACKUP_DIR.resolve())):
+        return None
+    return path
+
+
+def list_backup_files() -> list[Path]:
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    return sorted(
+        (path for path in BACKUP_DIR.glob("vert-tige-backup-*.zip") if BACKUP_NAME_RE.fullmatch(path.name)),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+
+
+def recent_log_lines(limit: int = 220) -> list[str]:
+    if not LOG_PATH.exists():
+        return []
+    try:
+        return LOG_PATH.read_text(encoding="utf-8", errors="replace").splitlines()[-limit:]
+    except OSError:
+        return []
+
+
+def add_tree_to_zip(archive: zipfile.ZipFile, root: Path, archive_root: str) -> None:
+    if not root.exists():
+        return
+    for path in sorted(root.rglob("*")):
+        if path.is_file():
+            archive.write(path, f"{archive_root}/{path.relative_to(root).as_posix()}")
+
+
+def create_backup_archive() -> Path:
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    archive_path = BACKUP_DIR / f"vert-tige-backup-{stamp}.zip"
+    temp_archive_path = BACKUP_DIR / f".{archive_path.name}.tmp"
+    temp_db_path = BACKUP_DIR / f".vert-tige-{stamp}.sqlite3"
+    try:
+        source = sqlite3.connect(DB_PATH)
+        target = sqlite3.connect(temp_db_path)
+        try:
+            source.backup(target)
+        finally:
+            target.close()
+            source.close()
+        with zipfile.ZipFile(temp_archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            archive.write(temp_db_path, "data/vert_tige.sqlite3")
+            add_tree_to_zip(archive, UPLOAD_DIR, "static/uploads")
+            if LOG_PATH.exists():
+                archive.write(LOG_PATH, "logs/server.log")
+            for log_name in ["server.out.log", "server.err.log"]:
+                log_path = BASE_DIR / log_name
+                if log_path.exists():
+                    archive.write(log_path, f"logs/{log_name}")
+            archive.writestr(
+                "README-sauvegarde.txt",
+                "\n".join(
+                    [
+                        "Sauvegarde Vert-Tige",
+                        f"Créée le {datetime.now().strftime('%d/%m/%Y à %H:%M:%S')}",
+                        "",
+                        "Contenu :",
+                        "- data/vert_tige.sqlite3 : base de données SQLite du site",
+                        "- static/uploads/ : images envoyées depuis l'administration",
+                        "- logs/ : journaux locaux du serveur",
+                        "",
+                        "Pour restaurer, arrêter le serveur, remplacer la base et recopier les fichiers uploads.",
+                    ]
+                ),
+            )
+        temp_archive_path.replace(archive_path)
+        write_log(f"Sauvegarde créée : {archive_path.name}")
+        return archive_path
+    finally:
+        for path in [temp_archive_path, temp_db_path]:
+            try:
+                if path.exists():
+                    path.unlink()
+            except OSError:
+                pass
 
 
 def connect() -> sqlite3.Connection:
@@ -1175,6 +1276,7 @@ def seo_head(
 
 def init_db() -> None:
     DATA_DIR.mkdir(exist_ok=True)
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     with connect() as conn:
         conn.executescript(
@@ -2253,6 +2355,7 @@ def admin_shell(title: str, content: str, tab: str = "/admin") -> str:
             nav_link("/admin/photos", "Photos", tab),
             nav_link("/admin/messages", "Messages", tab),
             nav_link("/admin/users", "Comptes", tab),
+            nav_link("/admin/maintenance", "Maintenance", tab),
         ]
     )
     body = f"""
@@ -2316,6 +2419,7 @@ def admin_dashboard() -> str:
       <a class="admin-action" href="/admin/events/new"><strong>Nouvel événement</strong><span>Ajouter un atelier ou une permanence au calendrier.</span></a>
       <a class="admin-action" href="/admin/articles/new"><strong>Nouvel article</strong><span>Rédiger une actualité et choisir si elle est mise en avant.</span></a>
       <a class="admin-action" href="/admin/photos"><strong>Ajouter des photos</strong><span>Alimenter la banque d’images du jardin.</span></a>
+      <a class="admin-action" href="/admin/maintenance"><strong>Sauvegardes et logs</strong><span>Créer un backup, télécharger les données utiles et consulter le journal serveur.</span></a>
     </div>
     <div class="notice warning">Avant une mise en ligne publique, remplace le mot de passe du compte référent, crée les comptes personnels nécessaires et configure <code>VERT_TIGE_SECRET</code>.</div>
     """
@@ -2958,6 +3062,85 @@ def admin_users_page(current_user: sqlite3.Row) -> str:
     return admin_shell("Comptes administrateurs", content, "/admin/users")
 
 
+def backup_created_label(path: Path) -> str:
+    try:
+        return datetime.fromtimestamp(path.stat().st_mtime).strftime("%d/%m/%Y %H:%M")
+    except OSError:
+        return ""
+
+
+def admin_maintenance_page(query: dict[str, list[str]] | None = None) -> str:
+    query = query or {}
+    status = query.get("status", [""])[0]
+    notices = {
+        "backup-created": '<div class="notice success">Sauvegarde créée. Elle est disponible dans la liste ci-dessous.</div>',
+        "backup-deleted": '<div class="notice success">Sauvegarde supprimée.</div>',
+        "backup-error": '<div class="notice error">Impossible de créer la sauvegarde. Consulte le journal serveur pour le détail.</div>',
+        "delete-error": '<div class="notice error">Impossible de supprimer cette sauvegarde.</div>',
+    }
+    notice = notices.get(status, "")
+    backups = list_backup_files()
+    backup_rows = "".join(
+        f"""
+        <tr>
+          <td><strong>{e(path.name)}</strong><span>{backup_created_label(path)}</span></td>
+          <td>{file_size_label(path.stat().st_size)}</td>
+          <td>
+            <div class="table-form maintenance-actions">
+              <a class="button small secondary" href="/admin/maintenance/backups/{quote(path.name)}">Télécharger</a>
+              <form method="post" action="/admin/maintenance/backups/{quote(path.name)}/delete">
+                <button class="button small danger" type="submit">Supprimer</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        """
+        for path in backups
+    )
+    log_lines = "\n".join(e(line) for line in recent_log_lines())
+    if not log_lines:
+        log_lines = "Aucune ligne de journal pour le moment."
+    content = f"""
+    {notice}
+    <div class="admin-two-column maintenance-grid">
+      <section class="form-panel">
+        <h2>Sauvegardes</h2>
+        <p class="form-note">Une sauvegarde contient la base de données, les images envoyées dans la galerie et les journaux locaux. Elle est à conserver hors du serveur après téléchargement.</p>
+        <form method="post" action="/admin/maintenance/backups/create">
+          <button class="button primary" type="submit">Créer une sauvegarde maintenant</button>
+        </form>
+      </section>
+      <section class="form-panel">
+        <h2>Journal serveur</h2>
+        <p class="form-note">Le journal aide à comprendre les connexions, erreurs et actions d’administration récentes.</p>
+        <a class="button secondary" href="/admin/maintenance/logs/server-log.txt">Télécharger le journal complet</a>
+      </section>
+    </div>
+    <section class="maintenance-section">
+      <div class="section-heading admin-section-heading">
+        <div>
+          <p class="eyebrow">Archives</p>
+          <h2>Sauvegardes disponibles</h2>
+        </div>
+      </div>
+      <table class="admin-table">
+        <thead><tr><th>Fichier</th><th>Taille</th><th>Actions</th></tr></thead>
+        <tbody>{backup_rows or '<tr><td colspan="3">Aucune sauvegarde créée.</td></tr>'}</tbody>
+      </table>
+    </section>
+    <section class="maintenance-section">
+      <div class="section-heading admin-section-heading">
+        <div>
+          <p class="eyebrow">Logs</p>
+          <h2>Dernières lignes</h2>
+        </div>
+      </div>
+      <pre class="log-viewer">{log_lines}</pre>
+    </section>
+    """
+    return admin_shell("Maintenance", content, "/admin/maintenance")
+
+
 def robots_txt() -> str:
     settings = read_settings()
     return "\n".join(
@@ -3226,7 +3409,7 @@ class VertTigeHandler(BaseHTTPRequestHandler):
             if not user:
                 self.redirect("/admin/login")
                 return
-            self.route_admin_get(path, user)
+            self.route_admin_get(path, user, query)
         else:
             self.respond_html(not_found_page(), status=404)
 
@@ -3248,7 +3431,7 @@ class VertTigeHandler(BaseHTTPRequestHandler):
             return
         self.respond_html(not_found_page(), status=404)
 
-    def route_admin_get(self, path: str, user: sqlite3.Row) -> None:
+    def route_admin_get(self, path: str, user: sqlite3.Row, query: dict[str, list[str]] | None = None) -> None:
         if path == "/admin":
             self.respond_html(admin_dashboard())
         elif path == "/admin/home":
@@ -3276,10 +3459,26 @@ class VertTigeHandler(BaseHTTPRequestHandler):
                 self.redirect("/admin")
                 return
             self.respond_html(admin_users_page(user))
+        elif path == "/admin/maintenance":
+            if user["role"] != "owner":
+                self.redirect("/admin")
+                return
+            self.respond_html(admin_maintenance_page(query))
+        elif match := re.fullmatch(r"/admin/maintenance/backups/([^/]+)", path):
+            if user["role"] != "owner":
+                self.redirect("/admin")
+                return
+            self.download_backup(unquote(match.group(1)), user)
+        elif path == "/admin/maintenance/logs/server-log.txt":
+            if user["role"] != "owner":
+                self.redirect("/admin")
+                return
+            self.download_server_log(user)
         else:
             self.respond_html(not_found_page(), status=404)
 
     def route_admin_post(self, path: str, user: sqlite3.Row) -> None:
+        write_log(f"Admin {user['username']} POST {path}")
         if path == "/admin/home":
             self.save_home()
         elif path == "/admin/practical":
@@ -3327,6 +3526,16 @@ class VertTigeHandler(BaseHTTPRequestHandler):
                 self.redirect("/admin")
                 return
             self.change_admin_password(int(match.group(1)))
+        elif path == "/admin/maintenance/backups/create":
+            if user["role"] != "owner":
+                self.redirect("/admin")
+                return
+            self.create_backup(user)
+        elif match := re.fullmatch(r"/admin/maintenance/backups/([^/]+)/delete", path):
+            if user["role"] != "owner":
+                self.redirect("/admin")
+                return
+            self.delete_backup(unquote(match.group(1)), user)
         else:
             self.respond_html(not_found_page(), status=404)
 
@@ -3753,6 +3962,7 @@ class VertTigeHandler(BaseHTTPRequestHandler):
                 (username,),
             ).fetchone()
         if user and verify_password(user, password):
+            write_log(f"Connexion admin réussie : {username}")
             body = b""
             self.send_response(303)
             self.send_header("Location", "/admin")
@@ -3764,6 +3974,7 @@ class VertTigeHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
+        write_log(f"Connexion admin refusée : {username or 'identifiant vide'}")
         self.redirect("/admin/login?error=1")
 
     def clear_session(self) -> None:
@@ -3813,6 +4024,49 @@ class VertTigeHandler(BaseHTTPRequestHandler):
         with connect() as conn:
             conn.execute("DELETE FROM messages WHERE id = ? AND handled = 1", (message_id,))
         self.redirect("/admin/messages")
+
+    def create_backup(self, user: sqlite3.Row) -> None:
+        try:
+            archive_path = create_backup_archive()
+        except (OSError, sqlite3.Error, zipfile.BadZipFile) as exc:
+            write_log(f"Erreur sauvegarde par {user['username']} : {exc}")
+            self.redirect("/admin/maintenance?status=backup-error")
+            return
+        write_log(f"Sauvegarde demandée par {user['username']} : {archive_path.name}")
+        self.redirect("/admin/maintenance?status=backup-created")
+
+    def delete_backup(self, filename: str, user: sqlite3.Row) -> None:
+        backup_path = backup_path_from_name(filename)
+        if not backup_path or not backup_path.exists():
+            self.redirect("/admin/maintenance?status=delete-error")
+            return
+        try:
+            backup_path.unlink()
+        except OSError as exc:
+            write_log(f"Erreur suppression sauvegarde par {user['username']} : {filename} - {exc}")
+            self.redirect("/admin/maintenance?status=delete-error")
+            return
+        write_log(f"Sauvegarde supprimée par {user['username']} : {filename}")
+        self.redirect("/admin/maintenance?status=backup-deleted")
+
+    def download_backup(self, filename: str, user: sqlite3.Row) -> None:
+        backup_path = backup_path_from_name(filename)
+        if not backup_path or not backup_path.exists():
+            self.respond_html(not_found_page(), status=404)
+            return
+        write_log(f"Sauvegarde téléchargée par {user['username']} : {filename}")
+        self.respond_file(
+            backup_path,
+            filename,
+            "application/zip",
+        )
+
+    def download_server_log(self, user: sqlite3.Row) -> None:
+        if not LOG_PATH.exists():
+            self.respond_text("Aucun journal disponible.\n", content_type="text/plain; charset=utf-8")
+            return
+        write_log(f"Journal serveur téléchargé par {user['username']}")
+        self.respond_file(LOG_PATH, "vert-tige-server.log", "text/plain; charset=utf-8")
 
     def create_admin_user(self) -> None:
         form, _ = self.read_form()
@@ -3932,6 +4186,18 @@ class VertTigeHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(data)))
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        self.wfile.write(data)
+
+    def respond_file(self, path: Path, filename: str, content_type: str) -> None:
+        data = path.read_bytes()
+        quoted_name = quote(filename)
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{quoted_name}")
+        self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
         self.wfile.write(data)

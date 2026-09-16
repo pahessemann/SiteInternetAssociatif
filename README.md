@@ -172,6 +172,9 @@ Les donnees persistantes restent dans :
 
 ## Suite
 
+Le diagnostic SEO et la procedure Google Search Console sont disponibles dans
+[REFERENCEMENT.md](REFERENCEMENT.md).
+
 - brancher un hebergement et un nom de domaine ;
 - ajouter une sauvegarde automatique de la base et des photos ;
 - ajouter une journalisation des actions admin ;

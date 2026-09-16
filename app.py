@@ -1246,8 +1246,9 @@ def organization_schema(settings: dict[str, str]) -> dict[str, object]:
         "url": public_base_url(settings),
         "description": compact_text(settings.get("seo_description"), settings.get("home_intro")),
     }
-    if settings.get("contact_email"):
-        schema["email"] = settings["contact_email"]
+    contact_email = settings.get("contact_email", "").strip()
+    if valid_email(contact_email) and not contact_email.lower().endswith(".local"):
+        schema["email"] = contact_email
     if settings.get("practical_address"):
         schema["address"] = {
             "@type": "PostalAddress",
@@ -2207,7 +2208,7 @@ def articles_page(query: dict[str, list[str]] | None = None) -> str:
     )
 
 
-def article_page(slug: str) -> str:
+def article_page(slug: str) -> str | None:
     settings = read_settings()
     with connect() as conn:
         row = conn.execute(
@@ -2215,7 +2216,7 @@ def article_page(slug: str) -> str:
             (slug,),
         ).fetchone()
     if not row:
-        return not_found_page()
+        return None
     image = row["image_url"] or "/static/hero-garden.png"
     body = f"""
     <article class="article-page">
@@ -2788,7 +2789,8 @@ def admin_home_page() -> str:
         <h2>Référencement</h2>
         <label>URL publique du site<input type="url" name="site_url" value="{e(settings.get('site_url', ''))}" placeholder="https://www.vert-tige.fr"></label>
         <label>Description pour Google<textarea name="seo_description" rows="4">{e(settings.get('seo_description', ''))}</textarea></label>
-        <label>Validation Google Search Console<input name="google_site_verification" value="{e(settings.get('google_site_verification', ''))}" placeholder="Code fourni par Google"></label>
+        <label>Validation Google Search Console (balise HTML)<input name="google_site_verification" value="{e(settings.get('google_site_verification', ''))}" placeholder="Valeur du champ content de la balise Google"></label>
+        <p class="form-note">Ce champ concerne la validation par balise HTML. Pour une validation de domaine par DNS, ajoute l’enregistrement TXT fourni par Google chez le gestionnaire de ton domaine.</p>
         <p class="form-note">Ces champs alimentent les titres, descriptions, aperçus de partage, <code>sitemap.xml</code> et la balise de validation Google.</p>
       </div>
       <div class="settings-section">
@@ -3581,7 +3583,11 @@ class VertTigeHandler(BaseHTTPRequestHandler):
         elif path == "/articles":
             self.respond_html(articles_page(query))
         elif path.startswith("/articles/"):
-            self.respond_html(article_page(unquote(path.removeprefix("/articles/"))))
+            content = article_page(unquote(path.removeprefix("/articles/")))
+            if content is None:
+                self.respond_html(not_found_page(), status=404)
+            else:
+                self.respond_html(content)
         elif path == "/galerie":
             self.respond_html(gallery_page(query))
         elif path == "/infos-pratiques":

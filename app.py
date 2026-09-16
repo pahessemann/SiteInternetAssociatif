@@ -269,6 +269,96 @@ def create_backup_archive() -> Path:
                 pass
 
 
+def insert_admin_activity(
+    username: str,
+    action: str,
+    target: str = "",
+    details: str = "",
+    ip_address: str = "",
+    user_id: int | None = None,
+) -> None:
+    message = " - ".join(part for part in [username, action, target, details] if part)
+    write_log(f"Audit admin : {message}")
+    try:
+        with connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO admin_activity_logs
+                    (user_id, username, action, target, details, ip_address, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    user_id,
+                    username[:120],
+                    action[:180],
+                    target[:180],
+                    details[:500],
+                    ip_address[:80],
+                    now_iso(),
+                ),
+            )
+    except sqlite3.Error as exc:
+        write_log(f"Erreur journal admin : {exc}")
+
+
+def admin_action_summary(path: str) -> tuple[str, str, str]:
+    action = "Action d’administration"
+    target = path
+    details = ""
+    if path == "/admin/home":
+        return "Mise à jour de l’accueil", "Accueil", "Textes, images, footer, réseaux sociaux ou référencement"
+    if path == "/admin/practical":
+        return "Mise à jour des infos pratiques", "Infos pratiques", "Adresse, transports, carte ou horaires"
+    if path == "/admin/events/save":
+        return "Création d’un événement", "Programmation", ""
+    if match := re.fullmatch(r"/admin/events/(\d+)/save", path):
+        return "Modification d’un événement", f"Événement #{match.group(1)}", ""
+    if match := re.fullmatch(r"/admin/events/(\d+)/delete", path):
+        return "Suppression d’un événement", f"Événement #{match.group(1)}", ""
+    if path == "/admin/articles/save":
+        return "Création d’un article", "Articles", ""
+    if match := re.fullmatch(r"/admin/articles/(\d+)/save", path):
+        return "Modification d’un article", f"Article #{match.group(1)}", ""
+    if match := re.fullmatch(r"/admin/articles/(\d+)/delete", path):
+        return "Suppression d’un article", f"Article #{match.group(1)}", ""
+    if path == "/admin/photos/albums/create":
+        return "Création d’un album photo", "Photos", ""
+    if match := re.fullmatch(r"/admin/photos/albums/(\d+)/delete", path):
+        return "Suppression d’un album photo", f"Album #{match.group(1)}", ""
+    if path == "/admin/photos/upload":
+        return "Ajout de photos", "Photos", ""
+    if match := re.fullmatch(r"/admin/photos/(\d+)/visibility", path):
+        return "Modification de visibilité photo", f"Photo #{match.group(1)}", ""
+    if match := re.fullmatch(r"/admin/photos/(\d+)/delete", path):
+        return "Suppression d’une photo", f"Photo #{match.group(1)}", ""
+    if path == "/admin/messages/settings":
+        return "Mise à jour de la messagerie", "Messages", "Adresse de contact ou paramètres du formulaire"
+    if match := re.fullmatch(r"/admin/messages/(\d+)/toggle", path):
+        return "Changement de statut d’un message", f"Message #{match.group(1)}", ""
+    if match := re.fullmatch(r"/admin/messages/(\d+)/delete", path):
+        return "Suppression d’un message traité", f"Message #{match.group(1)}", ""
+    if path == "/admin/users/create":
+        return "Création d’un compte administrateur", "Comptes", ""
+    if match := re.fullmatch(r"/admin/users/(\d+)/save", path):
+        return "Modification d’un compte administrateur", f"Compte #{match.group(1)}", ""
+    if match := re.fullmatch(r"/admin/users/(\d+)/password", path):
+        return "Changement de mot de passe administrateur", f"Compte #{match.group(1)}", "Mot de passe non journalisé"
+    if path == "/admin/maintenance/backups/create":
+        return "Création d’une sauvegarde", "Maintenance", ""
+    if match := re.fullmatch(r"/admin/maintenance/backups/([^/]+)/delete", path):
+        return "Suppression d’une sauvegarde", "Maintenance", unquote(match.group(1))
+    return action, target, details
+
+
+def admin_action_requires_owner(path: str) -> bool:
+    return (
+        path == "/admin/users/create"
+        or bool(re.fullmatch(r"/admin/users/\d+/(save|password)", path))
+        or path == "/admin/maintenance/backups/create"
+        or bool(re.fullmatch(r"/admin/maintenance/backups/[^/]+/delete", path))
+    )
+
+
 def connect() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -541,7 +631,16 @@ def repair_text_encoding(value: str | None) -> str | None:
 
 
 def repair_stored_text_encoding(conn: sqlite3.Connection) -> None:
-    for table in ["settings", "events", "articles", "photos", "photo_albums", "messages", "admin_users"]:
+    for table in [
+        "settings",
+        "events",
+        "articles",
+        "photos",
+        "photo_albums",
+        "messages",
+        "admin_users",
+        "admin_activity_logs",
+    ]:
         columns = [
             row["name"]
             for row in conn.execute(f"PRAGMA table_info({table})")
@@ -573,6 +672,16 @@ def format_date(value: str | None) -> str:
     try:
         parsed = date.fromisoformat(value)
         return f"{parsed.day} {MONTHS[parsed.month]} {parsed.year}"
+    except ValueError:
+        return e(value)
+
+
+def format_datetime(value: str | None) -> str:
+    if not value:
+        return ""
+    try:
+        parsed = datetime.fromisoformat(value)
+        return parsed.strftime("%d/%m/%Y %H:%M")
     except ValueError:
         return e(value)
 
@@ -1353,6 +1462,17 @@ def init_db() -> None:
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS admin_activity_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                username TEXT NOT NULL,
+                action TEXT NOT NULL,
+                target TEXT,
+                details TEXT,
+                ip_address TEXT,
+                created_at TEXT NOT NULL
+            );
             """
         )
         ensure_columns(
@@ -1775,14 +1895,22 @@ def article_card(row: sqlite3.Row) -> str:
     </article>"""
 
 
-def event_card(row: sqlite3.Row) -> str:
+def event_card(row: sqlite3.Row, modal: bool = False) -> str:
     image_html = (
         f'<img class="event-card-image" src="{e(row["image_url"])}" alt="">'
         if row["image_url"]
         else ""
     )
+    modal_id = f"event-modal-{row['id']}"
+    modal_attrs = (
+        f' role="button" tabindex="0" data-event-modal-open="{modal_id}" '
+        f'aria-haspopup="dialog" aria-controls="{modal_id}"'
+        if modal
+        else ""
+    )
+    cta_html = '<p class="event-card-cta">Voir le détail</p>' if modal else ""
     return f"""
-    <article class="card event-card" id="event-{row['id']}">
+    <article class="card event-card" id="event-{row['id']}"{modal_attrs}>
       <div class="date-badge"><strong>{date.fromisoformat(row["starts_on"]).day}</strong><span>{MONTHS[date.fromisoformat(row["starts_on"]).month][:3]}</span></div>
       <div>
         <p class="meta">{event_schedule(row)}</p>
@@ -1790,8 +1918,41 @@ def event_card(row: sqlite3.Row) -> str:
         <p class="place">{e(event_place(row))}</p>
         {image_html}
         {paragraphs(row["description"])}
+        {cta_html}
       </div>
     </article>"""
+
+
+def event_modal(row: sqlite3.Row) -> str:
+    modal_id = f"event-modal-{row['id']}"
+    image_html = (
+        f'<img class="event-modal-image" src="{e(row["image_url"])}" alt="">'
+        if row["image_url"]
+        else ""
+    )
+    description_html = paragraphs(row["description"]) or "<p>Les détails de ce rendez-vous seront complétés prochainement.</p>"
+    return f"""
+    <div class="event-modal" id="{modal_id}" role="dialog" aria-modal="true" aria-labelledby="{modal_id}-title" data-event-modal hidden>
+      <div class="event-modal-backdrop" data-event-modal-close></div>
+      <article class="event-modal-panel" tabindex="-1">
+        <button class="event-modal-close" type="button" aria-label="Fermer la fenêtre" data-event-modal-close>&times;</button>
+        {image_html}
+        <div class="event-modal-content">
+          <p class="eyebrow">Rendez-vous</p>
+          <h2 id="{modal_id}-title">{e(row["title"])}</h2>
+          <dl class="event-modal-details">
+            <div><dt>Date et horaire</dt><dd>{e(event_schedule(row))}</dd></div>
+            <div><dt>Lieu</dt><dd>{e(event_place(row))}</dd></div>
+          </dl>
+          <div class="event-modal-description">{description_html}</div>
+        </div>
+      </article>
+    </div>
+    """
+
+
+def event_modals(rows: list[sqlite3.Row]) -> str:
+    return "".join(event_modal(row) for row in rows)
 
 
 def home_page() -> str:
@@ -1810,7 +1971,8 @@ def home_page() -> str:
         ).fetchall()
 
     home_image = settings.get("home_image_url") or "/static/hero-garden.png"
-    event_html = "".join(event_card(row) for row in events) or empty_state(settings["home_events_empty"])
+    event_html = "".join(event_card(row, modal=True) for row in events) or empty_state(settings["home_events_empty"])
+    event_modal_html = event_modals(events)
     article_html = "".join(article_card(row) for row in articles) or empty_state(settings["home_articles_empty"])
     photo_html = render_photo_strip(photos, settings)
     about_text = settings.get("home_about_text") or settings["home_intro"]
@@ -1845,6 +2007,7 @@ def home_page() -> str:
         <a class="text-link" href="/agenda">{e(settings["home_events_link_label"])}</a>
       </div>
       <div class="card-grid">{event_html}</div>
+      {event_modal_html}
     </section>
 
     <section class="section muted-band">
@@ -1909,9 +2072,16 @@ def render_photo_strip(rows: list[sqlite3.Row], settings: dict[str, str]) -> str
 
 def agenda_page(query: dict[str, list[str]]) -> str:
     settings = read_settings()
+    today = date.today().isoformat()
     with connect() as conn:
         program = conn.execute(
-            "SELECT * FROM events ORDER BY created_at DESC, starts_on DESC LIMIT 20"
+            """
+            SELECT * FROM events
+            WHERE starts_on >= ?
+            ORDER BY starts_on ASC, start_time ASC, created_at DESC
+            LIMIT 20
+            """,
+            (today,),
         ).fetchall()
 
     body = f"""
@@ -1928,8 +2098,9 @@ def agenda_page(query: dict[str, list[str]]) -> str:
             <h2>À venir</h2>
           </div>
         </div>
-        <div class="list-stack">{"".join(event_card(row) for row in program) or empty_state("Aucun événement publié.")}</div>
+        <div class="list-stack">{"".join(event_card(row, modal=True) for row in program) or empty_state("Aucun rendez-vous à venir pour le moment.")}</div>
       </div>
+      {event_modals(program)}
     </section>
     """
     return layout(
@@ -3080,6 +3251,10 @@ def admin_maintenance_page(query: dict[str, list[str]] | None = None) -> str:
     }
     notice = notices.get(status, "")
     backups = list_backup_files()
+    with connect() as conn:
+        admin_logs = conn.execute(
+            "SELECT * FROM admin_activity_logs ORDER BY id DESC LIMIT 120"
+        ).fetchall()
     backup_rows = "".join(
         f"""
         <tr>
@@ -3096,6 +3271,17 @@ def admin_maintenance_page(query: dict[str, list[str]] | None = None) -> str:
         </tr>
         """
         for path in backups
+    )
+    admin_log_rows = "".join(
+        f"""
+        <tr>
+          <td><strong>{format_datetime(row['created_at'])}</strong><span>{e(row['ip_address'] or '')}</span></td>
+          <td>{e(row['username'])}</td>
+          <td><strong>{e(row['action'])}</strong><span>{e(row['details'] or '')}</span></td>
+          <td>{e(row['target'] or '')}</td>
+        </tr>
+        """
+        for row in admin_logs
     )
     log_lines = "\n".join(e(line) for line in recent_log_lines())
     if not log_lines:
@@ -3126,6 +3312,18 @@ def admin_maintenance_page(query: dict[str, list[str]] | None = None) -> str:
       <table class="admin-table">
         <thead><tr><th>Fichier</th><th>Taille</th><th>Actions</th></tr></thead>
         <tbody>{backup_rows or '<tr><td colspan="3">Aucune sauvegarde créée.</td></tr>'}</tbody>
+      </table>
+    </section>
+    <section class="maintenance-section">
+      <div class="section-heading admin-section-heading">
+        <div>
+          <p class="eyebrow">Audit</p>
+          <h2>Actions administrateur</h2>
+        </div>
+      </div>
+      <table class="admin-table admin-audit-table">
+        <thead><tr><th>Date</th><th>Compte</th><th>Action</th><th>Cible</th></tr></thead>
+        <tbody>{admin_log_rows or '<tr><td colspan="4">Aucune action enregistrée.</td></tr>'}</tbody>
       </table>
     </section>
     <section class="maintenance-section">
@@ -3403,6 +3601,9 @@ class VertTigeHandler(BaseHTTPRequestHandler):
         elif path == "/admin/login":
             self.respond_html(login_page(error=query.get("error") == ["1"]))
         elif path == "/admin/logout":
+            user = self.current_user()
+            if user:
+                self.record_admin_action(user, "Déconnexion", "Session")
             self.clear_session()
         elif path.startswith("/admin"):
             user = self.current_user()
@@ -3478,7 +3679,17 @@ class VertTigeHandler(BaseHTTPRequestHandler):
             self.respond_html(not_found_page(), status=404)
 
     def route_admin_post(self, path: str, user: sqlite3.Row) -> None:
-        write_log(f"Admin {user['username']} POST {path}")
+        if admin_action_requires_owner(path) and user["role"] != "owner":
+            action, target, _details = admin_action_summary(path)
+            self.record_admin_action(
+                user,
+                "Action refusée",
+                target,
+                f"Permission référent requise : {action}",
+            )
+            self.redirect("/admin")
+            return
+        self.record_admin_action(user, *admin_action_summary(path))
         if path == "/admin/home":
             self.save_home()
         elif path == "/admin/practical":
@@ -3512,32 +3723,33 @@ class VertTigeHandler(BaseHTTPRequestHandler):
         elif match := re.fullmatch(r"/admin/messages/(\d+)/toggle", path):
             self.toggle_message(int(match.group(1)))
         elif path == "/admin/users/create":
-            if user["role"] != "owner":
-                self.redirect("/admin")
-                return
             self.create_admin_user()
         elif match := re.fullmatch(r"/admin/users/(\d+)/save", path):
-            if user["role"] != "owner":
-                self.redirect("/admin")
-                return
             self.save_admin_user(int(match.group(1)), user)
         elif match := re.fullmatch(r"/admin/users/(\d+)/password", path):
-            if user["role"] != "owner":
-                self.redirect("/admin")
-                return
             self.change_admin_password(int(match.group(1)))
         elif path == "/admin/maintenance/backups/create":
-            if user["role"] != "owner":
-                self.redirect("/admin")
-                return
             self.create_backup(user)
         elif match := re.fullmatch(r"/admin/maintenance/backups/([^/]+)/delete", path):
-            if user["role"] != "owner":
-                self.redirect("/admin")
-                return
             self.delete_backup(unquote(match.group(1)), user)
         else:
             self.respond_html(not_found_page(), status=404)
+
+    def record_admin_action(
+        self,
+        user: sqlite3.Row,
+        action: str,
+        target: str = "",
+        details: str = "",
+    ) -> None:
+        insert_admin_activity(
+            username=user["username"],
+            action=action,
+            target=target,
+            details=details,
+            ip_address=self.client_address[0] if self.client_address else "",
+            user_id=user["id"],
+        )
 
     def read_form(self) -> tuple[dict[str, str], dict[str, Upload]]:
         length = int(self.headers.get("Content-Length", "0") or "0")
@@ -3962,6 +4174,13 @@ class VertTigeHandler(BaseHTTPRequestHandler):
                 (username,),
             ).fetchone()
         if user and verify_password(user, password):
+            insert_admin_activity(
+                username=user["username"],
+                action="Connexion à l’administration",
+                target="Session",
+                ip_address=self.client_address[0] if self.client_address else "",
+                user_id=user["id"],
+            )
             write_log(f"Connexion admin réussie : {username}")
             body = b""
             self.send_response(303)
@@ -3974,6 +4193,13 @@ class VertTigeHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
+        insert_admin_activity(
+            username=username or "identifiant vide",
+            action="Connexion refusée",
+            target="Session",
+            details="Identifiant ou mot de passe incorrect",
+            ip_address=self.client_address[0] if self.client_address else "",
+        )
         write_log(f"Connexion admin refusée : {username or 'identifiant vide'}")
         self.redirect("/admin/login?error=1")
 
@@ -4054,6 +4280,7 @@ class VertTigeHandler(BaseHTTPRequestHandler):
         if not backup_path or not backup_path.exists():
             self.respond_html(not_found_page(), status=404)
             return
+        self.record_admin_action(user, "Téléchargement d’une sauvegarde", "Maintenance", filename)
         write_log(f"Sauvegarde téléchargée par {user['username']} : {filename}")
         self.respond_file(
             backup_path,
@@ -4065,6 +4292,7 @@ class VertTigeHandler(BaseHTTPRequestHandler):
         if not LOG_PATH.exists():
             self.respond_text("Aucun journal disponible.\n", content_type="text/plain; charset=utf-8")
             return
+        self.record_admin_action(user, "Téléchargement du journal serveur", "Maintenance")
         write_log(f"Journal serveur téléchargé par {user['username']}")
         self.respond_file(LOG_PATH, "vert-tige-server.log", "text/plain; charset=utf-8")
 

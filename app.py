@@ -69,6 +69,7 @@ PHOTO_VISIBILITY_LABELS = {
     "gallery": "Galerie uniquement",
     "article": "Articles uniquement",
     "both": "Galerie + articles",
+    "library": "Bibliothèque uniquement",
 }
 
 OLD_HOME_INTRO = (
@@ -2251,6 +2252,7 @@ def gallery_page(query: dict[str, list[str]] | None = None) -> str:
             LEFT JOIN photos p
               ON p.album_id = a.id AND p.visibility IN ('gallery', 'both')
             GROUP BY a.id
+            HAVING COUNT(p.id) > 0
             ORDER BY a.name
             """
         ).fetchall()
@@ -2258,10 +2260,7 @@ def gallery_page(query: dict[str, list[str]] | None = None) -> str:
         params: tuple[object, ...] = ()
         where = "WHERE p.visibility IN ('gallery', 'both')"
         if album_slug:
-            current_album = conn.execute(
-                "SELECT * FROM photo_albums WHERE slug = ?",
-                (album_slug,),
-            ).fetchone()
+            current_album = next((album for album in albums if album["slug"] == album_slug), None)
             if current_album:
                 where += " AND p.album_id = ?"
                 params = (current_album["id"],)
@@ -2972,7 +2971,7 @@ def article_form(row: sqlite3.Row | None = None) -> str:
     published = "checked" if row is None or row["published"] else ""
     with connect() as conn:
         photos = conn.execute(
-            "SELECT * FROM photos WHERE visibility IN ('article', 'both') ORDER BY created_at DESC"
+            "SELECT * FROM photos WHERE visibility IN ('article', 'both', 'library') ORDER BY created_at DESC"
         ).fetchall()
     photo_options = "".join(
         f'<option value="/static/uploads/{e(photo["filename"])}">{e(photo["title"] or photo["filename"])}</option>'
@@ -3146,6 +3145,7 @@ def admin_photos_page() -> str:
       </label>
       <button class="button primary" type="submit">Ajouter la photo</button>
     </form>
+    <p class="form-note">Bibliothèque uniquement : photo conservée pour les administrateurs, absente de la galerie publique. Une image utilisée dans un contenu publié reste visible dans ce contenu.</p>
     <div class="photo-grid admin-photo-grid">{items or empty_state("Aucune photo ajoutée.")}</div>
     """
     return admin_shell("Photos", content, "/admin/photos")

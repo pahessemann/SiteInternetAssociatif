@@ -77,6 +77,23 @@ $env:VERT_TIGE_SECRET="une-longue-valeur-aleatoire"
 python app.py
 ```
 
+## Photos en reserve
+
+Dans `Administration > Photos`, la visibilite `Bibliotheque uniquement` permet
+de conserver des images dans la bibliotheque commune aux administrateurs.
+Ce choix est disponible a l'import et sur les photos deja ajoutees.
+
+Ces photos ne sont pas listees dans la galerie publique, l'apercu de l'accueil
+ou la recherche. Les albums sans photo publique ne sont pas proposes dans la
+galerie ni dans le sitemap. Pour afficher une photo dans la galerie, choisir
+`Galerie uniquement` ou `Galerie + articles`, puis cliquer sur `Changer`.
+
+Les images en reserve restent disponibles dans les selecteurs des articles,
+des evenements et de l'accueil. Les utiliser dans un contenu publie les rend
+visibles dans ce contenu, sans les ajouter automatiquement a la galerie.
+Ce statut controle l'affichage : il ne protege pas l'acces direct au fichier
+via son URL et ne constitue donc pas un stockage confidentiel.
+
 ## Envoi d'emails
 
 Le formulaire de contact enregistre toujours les messages dans l'administration.

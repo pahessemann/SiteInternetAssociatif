@@ -71,6 +71,49 @@ PHOTO_VISIBILITY_LABELS = {
     "both": "Galerie + articles",
     "library": "Bibliothèque uniquement",
 }
+CHRISTMAS_CATEGORY_LABELS = {
+    "recette": "Recette",
+    "jardin": "Conseil jardinage",
+    "nature": "Nature",
+    "atelier": "Atelier créatif",
+    "ecogeste": "Écogeste",
+    "histoire": "Histoire du jardin",
+    "surprise": "Surprise",
+}
+CHRISTMAS_ACCENT_DEFAULT = "#a62f2f"
+CHRISTMAS_DEFAULT_IMAGE = "/static/noel-jardin-hiver-2026.png"
+CHRISTMAS_COMPLETION_TITLE_DEFAULT = "Bravo, vous avez complété le calendrier !"
+CHRISTMAS_COMPLETION_MESSAGE_DEFAULT = (
+    "Vous avez découvert les 24 surprises du jardin. Toute l’équipe de "
+    "l’association vous souhaite de très belles fêtes !"
+)
+CHRISTMAS_COMPLETION_LINK_LABEL_DEFAULT = "Découvrir la surprise"
+DEFAULT_CHRISTMAS_DAYS = [
+    ("jardin", "Préparer le jardin à l’hiver", "Trois gestes simples avant les grands froids.", "Pailler les parcelles nues, protéger les pots fragiles et laisser quelques tiges creuses debout : elles serviront de refuge aux insectes pendant l’hiver."),
+    ("recette", "Velouté de courge rôtie", "Une soupe douce et chaleureuse.", "Rôtir une courge avec un oignon et un filet d’huile pendant 35 minutes à 190 °C. Mixer avec du bouillon chaud, une pincée de muscade et un peu de crème ou de lait végétal."),
+    ("nature", "Observer les oiseaux", "Un mini-défi à faire depuis la fenêtre.", "Pendant dix minutes, noter les oiseaux aperçus. Mésange, rouge-gorge ou merle : leurs visites racontent déjà beaucoup sur la biodiversité du quartier."),
+    ("atelier", "Étoiles en papier récupéré", "Une décoration zéro déchet.", "Découper des bandes dans un ancien magazine, les plier en accordéon puis réunir les extrémités. Une ficelle suffit pour suspendre chaque étoile."),
+    ("ecogeste", "Bien nourrir les oiseaux", "Les bons aliments, au bon moment.", "En période de gel, proposer des graines de tournesol et de l’eau propre. Éviter le pain et les aliments salés, peu adaptés à leur organisme."),
+    ("recette", "Pommes au four", "Un dessert de saison presque sans vaisselle.", "Évider les pommes, ajouter quelques noix, de la cannelle et une cuillère de miel. Cuire 25 minutes à 180 °C avec un fond d’eau dans le plat."),
+    ("jardin", "Récolter la mâche", "Une salade qui aime le froid.", "Couper les rosettes juste au-dessus du collet pour préserver les jeunes feuilles. Récolter de préférence par temps sec et rincer au dernier moment."),
+    ("histoire", "Le jardin en hiver", "Pourquoi le repos fait partie du cycle.", "Sous la surface, la vie continue : racines, champignons et micro-organismes transforment lentement la matière. Le calme de décembre prépare déjà le printemps."),
+    ("atelier", "Une mangeoire en pomme de pin", "Une activité facile à partager avec les enfants.", "Attacher une ficelle à une pomme de pin, glisser un mélange de graisse végétale non salée et de graines entre les écailles, puis suspendre hors de portée des chats."),
+    ("recette", "Tisane pomme-romarin", "Le jardin s’invite dans une boisson chaude.", "Faire frémir quelques pelures de pomme bio avec une petite branche de romarin pendant 8 minutes. Filtrer puis ajouter un peu de miel selon le goût."),
+    ("jardin", "Planifier les semis", "Quelques lignes aujourd’hui, du temps gagné au printemps.", "Lister les variétés qui ont bien poussé, les quantités utiles et les dates de semis. Garder une place pour une nouveauté et une autre pour les fleurs mellifères."),
+    ("ecogeste", "Emballages en tissu", "Le furoshiki remplace le papier cadeau.", "Un carré de tissu, un foulard ou une jolie chute de coton se noue autour du cadeau. Le tissu pourra être réutilisé l’année suivante."),
+    ("nature", "La lune et le jardin", "Lever les yeux avant de rentrer.", "Repérer la phase de la lune ce soir et observer sa position. Ce rendez-vous quotidien aide à suivre le ciel, sans avoir besoin d’un instrument."),
+    ("recette", "Pesto de fanes", "Une idée anti-gaspillage colorée.", "Mixer des fanes bien lavées avec des noix, de l’ail, un fromage sec et de l’huile. Ajuster la texture avec un peu d’eau et servir sur des tartines."),
+    ("jardin", "Nettoyer sans tout enlever", "Conserver des abris pour la petite faune.", "Retirer seulement les végétaux malades. Garder feuilles, tiges et brindilles dans un coin calme : ils protègent le sol et de nombreux auxiliaires."),
+    ("atelier", "Marque-places végétaux", "Une table de fête inspirée du jardin.", "Écrire les prénoms sur de petits cartons et glisser une branche de romarin, une feuille persistante ou une baie décorative sous une ficelle naturelle."),
+    ("recette", "Sablés aux herbes", "Une version salée pour l’apéritif.", "Mélanger farine, beurre, fromage râpé et herbes séchées. Former un rouleau, laisser reposer au frais, découper puis cuire 12 minutes à 180 °C."),
+    ("ecogeste", "Un compost équilibré", "Même en hiver, le compost a besoin d’air.", "Alterner les déchets humides avec des matières brunes : feuilles sèches, petits cartons non imprimés ou brindilles broyées. Mélanger légèrement sans tasser."),
+    ("nature", "Reconnaître un bourgeon", "Le printemps est déjà en préparation.", "Observer la forme, la couleur et la disposition des bourgeons sur un rameau. Photographier sans cueillir, puis comparer au retour des feuilles."),
+    ("recette", "Chutney de saison", "Un condiment pour transformer les fruits mûrs.", "Cuire doucement pommes ou poires avec oignon, vinaigre, sucre et épices jusqu’à obtenir une compotée. Conserver au frais dans un pot propre."),
+    ("jardin", "Prendre soin des outils", "Dix minutes pour prolonger leur durée de vie.", "Brosser la terre sèche, affûter prudemment les lames puis huiler les parties métalliques et les manches en bois avant de ranger au sec."),
+    ("histoire", "Un souvenir du jardin", "Faire vivre la mémoire collective.", "Choisir une photo marquante de l’année et noter en quelques phrases les personnes, le moment et ce qui a été appris. Ces récits nourrissent la vie du jardin."),
+    ("atelier", "Cartes à planter", "Des vœux qui deviendront des fleurs.", "Mélanger des chutes de papier non glacé trempées et mixées avec quelques graines locales. Étaler, laisser sécher puis découper de petites cartes."),
+    ("surprise", "Joyeux Noël du jardin", "L’image est maintenant entièrement révélée !", "Merci d’avoir ouvert les 24 cases avec nous. Que cette fin d’année soit douce, curieuse et pleine de projets à cultiver ensemble."),
+]
 
 OLD_HOME_INTRO = (
     "Vert-Tige est un jardin partagé du 14e arrondissement : un lieu pour "
@@ -322,6 +365,14 @@ def admin_action_summary(path: str) -> tuple[str, str, str]:
         return "Modification d’un article", f"Article #{match.group(1)}", ""
     if match := re.fullmatch(r"/admin/articles/(\d+)/delete", path):
         return "Suppression d’un article", f"Article #{match.group(1)}", ""
+    if path == "/admin/noel/create":
+        return "Création d’une édition de Noël", "Calendrier de l’Avent", ""
+    if match := re.fullmatch(r"/admin/noel/(\d+)/save", path):
+        return "Modification d’une édition de Noël", f"Calendrier #{match.group(1)}", ""
+    if match := re.fullmatch(r"/admin/noel/(\d+)/delete", path):
+        return "Suppression d’une édition de Noël", f"Calendrier #{match.group(1)}", ""
+    if match := re.fullmatch(r"/admin/noel/(\d+)/jours/(\d+)", path):
+        return "Modification d’une case de l’Avent", f"Calendrier #{match.group(1)}, jour {match.group(2)}", ""
     if path == "/admin/photos/albums/create":
         return "Création d’un album photo", "Photos", ""
     if match := re.fullmatch(r"/admin/photos/albums/(\d+)/delete", path):
@@ -641,6 +692,8 @@ def repair_stored_text_encoding(conn: sqlite3.Connection) -> None:
         "messages",
         "admin_users",
         "admin_activity_logs",
+        "christmas_calendars",
+        "christmas_days",
     ]:
         columns = [
             row["name"]
@@ -782,6 +835,202 @@ def int_or_none(value: str | None) -> int | None:
         return None
 
 
+def normalize_christmas_category(value: str | None) -> str:
+    candidate = (value or "surprise").strip()
+    return candidate if candidate in CHRISTMAS_CATEGORY_LABELS else "surprise"
+
+
+def christmas_category_options(selected: str | None = "surprise") -> str:
+    current = normalize_christmas_category(selected)
+    return "".join(
+        f'<option value="{key}" {"selected" if key == current else ""}>{e(label)}</option>'
+        for key, label in CHRISTMAS_CATEGORY_LABELS.items()
+    )
+
+
+def normalize_hex_color(value: str | None) -> str:
+    candidate = (value or "").strip()
+    return candidate.lower() if re.fullmatch(r"#[0-9a-fA-F]{6}", candidate) else CHRISTMAS_ACCENT_DEFAULT
+
+
+def christmas_day_is_open(year: int, day_number: int, today: date, enabled: bool = True) -> bool:
+    if not enabled or day_number < 1 or day_number > 24:
+        return False
+    if today.year > year:
+        return True
+    if today.year < year or today.month != 12:
+        return False
+    return today.day >= 25 or today.day == day_number
+
+
+def christmas_day_can_restore(
+    year: int, day_number: int, today: date, enabled: bool = True
+) -> bool:
+    """A past case may only reopen before Christmas when its cookie says it was seen."""
+    if not enabled or day_number < 1 or day_number > 24:
+        return False
+    return (
+        today.year == year
+        and today.month == 12
+        and today.day < 25
+        and day_number < today.day
+    )
+
+
+def normalize_christmas_layout_variant(value: object) -> int:
+    try:
+        candidate = int(value)
+    except (TypeError, ValueError):
+        return 1
+    return candidate if 1 <= candidate <= 12 else 1
+
+
+def christmas_layout_options(selected: object = 1) -> str:
+    current = normalize_christmas_layout_variant(selected)
+    return "".join(
+        f'<option value="{variant}" {"selected" if variant == current else ""}>Puzzle {variant}</option>'
+        for variant in range(1, 13)
+    )
+
+
+def christmas_door_positions(year: int, variant: object = 1) -> list[int]:
+    """Return one stable, shuffled visual grid position for each day 1..24."""
+    layout_variant = normalize_christmas_layout_variant(variant)
+    positions = list(range(1, 25))
+    positions.sort(
+        key=lambda position: hashlib.sha256(
+            f"vert-tige-noel:{year}:{layout_variant}:{position}".encode("utf-8")
+        ).digest()
+    )
+    return positions
+
+
+def christmas_puzzle_tabs(year: int, variant: object, row: int, column: int) -> list[str]:
+    seed = year + normalize_christmas_layout_variant(variant) * 17
+    tabs: list[str] = []
+    if column < 6 and (seed + row + column) % 2 == 0:
+        tabs.append("right")
+    if column > 1 and (seed + row + column - 1) % 2 != 0:
+        tabs.append("left")
+    if row < 4 and (seed + row + column) % 2 == 0:
+        tabs.append("bottom")
+    if row > 1 and (seed + row - 1 + column) % 2 != 0:
+        tabs.append("top")
+    return tabs
+
+
+def christmas_puzzle_path_data(year: int, variant: object) -> tuple[str, str]:
+    """Build one continuous 6x4 jigsaw guide in a 600x400 coordinate space."""
+    layout_variant = normalize_christmas_layout_variant(variant)
+    seed = year + layout_variant * 17
+    vertical: list[str] = []
+    horizontal: list[str] = []
+    for column in range(1, 6):
+        x = column * 100
+        for row in range(1, 5):
+            y = (row - 1) * 100
+            direction = 1 if (seed + row + column) % 2 == 0 else -1
+            bulge = direction * 28
+            vertical.append(
+                f"M{x} {y}V{y + 34}C{x + bulge} {y + 34} "
+                f"{x + bulge} {y + 66} {x} {y + 66}V{y + 100}"
+            )
+    for row in range(1, 4):
+        y = row * 100
+        for column in range(1, 7):
+            x = (column - 1) * 100
+            direction = 1 if (seed + row + column) % 2 == 0 else -1
+            bulge = direction * 28
+            horizontal.append(
+                f"M{x} {y}H{x + 34}C{x + 34} {y + bulge} "
+                f"{x + 66} {y + bulge} {x + 66} {y}H{x + 100}"
+            )
+    return "".join(vertical), "".join(horizontal)
+
+
+def christmas_puzzle_overlay_svg(year: int, variant: object, admin: bool = False) -> str:
+    vertical, horizontal = christmas_puzzle_path_data(year, variant)
+    css_class = "christmas-cut-overlay" if admin else "christmas-puzzle-outline"
+    data_attributes = (
+        ' data-christmas-cut-overlay data-christmas-cut-vertical data-christmas-cut-horizontal'
+        if admin
+        else ""
+    )
+    return f"""
+    <svg class="{css_class}" viewBox="0 0 600 400" preserveAspectRatio="none" aria-hidden="true"{data_attributes}>
+      <rect class="christmas-puzzle-border" x="1.5" y="1.5" width="597" height="397" rx="3"></rect>
+      <path class="christmas-puzzle-lines christmas-puzzle-lines-vertical" data-puzzle-vertical d="{vertical}"></path>
+      <path class="christmas-puzzle-lines christmas-puzzle-lines-horizontal" data-puzzle-horizontal d="{horizontal}"></path>
+    </svg>
+    """
+
+
+def christmas_piece_clip_path_data(year: int, variant: object, position: int) -> str:
+    """Return a board-relative path for one interlocking puzzle piece."""
+    row = (position - 1) // 6 + 1
+    column = (position - 1) % 6 + 1
+    x0 = (column - 1) / 6
+    y0 = (row - 1) / 4
+    width = 1 / 6
+    height = 1 / 4
+    x1 = x0 + width
+    y1 = y0 + height
+    x34 = x0 + width * 0.34
+    x66 = x0 + width * 0.66
+    y34 = y0 + height * 0.34
+    y66 = y0 + height * 0.66
+    tabs = set(christmas_puzzle_tabs(year, variant, row, column))
+
+    def n(value: float) -> str:
+        return f"{value:.6f}".rstrip("0").rstrip(".")
+
+    parts = [f"M{n(x0)} {n(y0)}"]
+    if row == 1:
+        parts.append(f"H{n(x1)}")
+    else:
+        top_bulge = -height * 0.28 if "top" in tabs else height * 0.28
+        parts.append(
+            f"H{n(x34)}C{n(x34)} {n(y0 + top_bulge)} "
+            f"{n(x66)} {n(y0 + top_bulge)} {n(x66)} {n(y0)}H{n(x1)}"
+        )
+    if column == 6:
+        parts.append(f"V{n(y1)}")
+    else:
+        right_bulge = width * 0.28 if "right" in tabs else -width * 0.28
+        parts.append(
+            f"V{n(y34)}C{n(x1 + right_bulge)} {n(y34)} "
+            f"{n(x1 + right_bulge)} {n(y66)} {n(x1)} {n(y66)}V{n(y1)}"
+        )
+    if row == 4:
+        parts.append(f"H{n(x0)}")
+    else:
+        bottom_bulge = height * 0.28 if "bottom" in tabs else -height * 0.28
+        parts.append(
+            f"H{n(x66)}C{n(x66)} {n(y1 + bottom_bulge)} "
+            f"{n(x34)} {n(y1 + bottom_bulge)} {n(x34)} {n(y1)}H{n(x0)}"
+        )
+    if column == 1:
+        parts.append(f"V{n(y0)}")
+    else:
+        left_bulge = -width * 0.28 if "left" in tabs else width * 0.28
+        parts.append(
+            f"V{n(y66)}C{n(x0 + left_bulge)} {n(y66)} "
+            f"{n(x0 + left_bulge)} {n(y34)} {n(x0)} {n(y34)}V{n(y0)}"
+        )
+    parts.append("Z")
+    return "".join(parts)
+
+
+def christmas_puzzle_clip_definitions(year: int, variant: object) -> str:
+    clips = "".join(
+        f'<clipPath id="christmas-piece-{position}" clipPathUnits="objectBoundingBox">'
+        f'<path d="{christmas_piece_clip_path_data(year, variant, position)}"></path>'
+        f"</clipPath>"
+        for position in range(1, 25)
+    )
+    return f'<svg class="christmas-piece-definitions" width="0" height="0" aria-hidden="true"><defs>{clips}</defs></svg>'
+
+
 def unique_album_slug(conn: sqlite3.Connection, name: str) -> str:
     base = slugify(name)
     candidate = base
@@ -882,6 +1131,29 @@ def read_settings() -> dict[str, str]:
         rows = conn.execute("SELECT key, value FROM settings").fetchall()
     settings.update({row["key"]: row["value"] for row in rows})
     return settings
+
+
+def christmas_public_window(today: date | None = None) -> bool:
+    return (today or date.today()).month == 12
+
+
+def christmas_nav_enabled(today: date | None = None) -> bool:
+    display_date = today or date.today()
+    if not christmas_public_window(display_date):
+        return False
+    try:
+        with connect() as conn:
+            calendar = conn.execute(
+                "SELECT show_in_nav FROM christmas_calendars WHERE year = ? AND published = 1",
+                (display_date.year,),
+            ).fetchone()
+            if calendar is None:
+                calendar = conn.execute(
+                    "SELECT show_in_nav FROM christmas_calendars WHERE published = 1 ORDER BY year DESC LIMIT 1"
+                ).fetchone()
+            return bool(calendar and calendar["show_in_nav"])
+    except sqlite3.Error:
+        return False
 
 
 def versioned_static_url(path: str) -> str:
@@ -1385,6 +1657,51 @@ def seo_head(
   {schema_html}"""
 
 
+def populate_christmas_days(
+    conn: sqlite3.Connection,
+    calendar_id: int,
+    source_calendar_id: int | None = None,
+) -> None:
+    created = now_iso()
+    if source_calendar_id is not None:
+        source_rows = conn.execute(
+            "SELECT * FROM christmas_days WHERE calendar_id = ? ORDER BY day_number",
+            (source_calendar_id,),
+        ).fetchall()
+        for row in source_rows:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO christmas_days
+                    (calendar_id, day_number, category, title, teaser, body, image_url,
+                     link_url, link_label, enabled, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    calendar_id,
+                    row["day_number"],
+                    row["category"],
+                    row["title"],
+                    row["teaser"],
+                    row["body"],
+                    row["image_url"],
+                    row["link_url"],
+                    row["link_label"],
+                    row["enabled"],
+                    created,
+                ),
+            )
+    for day_number, (category, title, teaser, body) in enumerate(DEFAULT_CHRISTMAS_DAYS, 1):
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO christmas_days
+                (calendar_id, day_number, category, title, teaser, body, image_url,
+                 link_url, link_label, enabled, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, '', '', '', 1, ?)
+            """,
+            (calendar_id, day_number, category, title, teaser, body, created),
+        )
+
+
 def init_db() -> None:
     DATA_DIR.mkdir(exist_ok=True)
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
@@ -1475,6 +1792,42 @@ def init_db() -> None:
                 ip_address TEXT,
                 created_at TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS christmas_calendars (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                year INTEGER NOT NULL UNIQUE,
+                eyebrow TEXT,
+                title TEXT NOT NULL,
+                intro TEXT,
+                image_url TEXT,
+                accent_color TEXT NOT NULL DEFAULT '#a62f2f',
+                layout_variant INTEGER NOT NULL DEFAULT 1,
+                completion_enabled INTEGER NOT NULL DEFAULT 1,
+                completion_title TEXT NOT NULL DEFAULT 'Bravo, vous avez complété le calendrier !',
+                completion_message TEXT NOT NULL DEFAULT 'Vous avez découvert les 24 surprises du jardin. Toute l’équipe de l’association vous souhaite de très belles fêtes !',
+                completion_link_label TEXT NOT NULL DEFAULT 'Découvrir la surprise',
+                completion_link_url TEXT,
+                published INTEGER NOT NULL DEFAULT 0,
+                show_in_nav INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS christmas_days (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                calendar_id INTEGER NOT NULL,
+                day_number INTEGER NOT NULL,
+                category TEXT NOT NULL DEFAULT 'surprise',
+                title TEXT NOT NULL,
+                teaser TEXT,
+                body TEXT,
+                image_url TEXT,
+                link_url TEXT,
+                link_label TEXT,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                updated_at TEXT NOT NULL,
+                UNIQUE(calendar_id, day_number)
+            );
             """
         )
         ensure_columns(
@@ -1500,6 +1853,18 @@ def init_db() -> None:
             "messages",
             {
                 "mail_token": "TEXT",
+            },
+        )
+        ensure_columns(
+            conn,
+            "christmas_calendars",
+            {
+                "layout_variant": "INTEGER NOT NULL DEFAULT 1",
+                "completion_enabled": "INTEGER NOT NULL DEFAULT 1",
+                "completion_title": "TEXT NOT NULL DEFAULT 'Bravo, vous avez complété le calendrier !'",
+                "completion_message": "TEXT NOT NULL DEFAULT 'Vous avez découvert les 24 surprises du jardin. Toute l’équipe de l’association vous souhaite de très belles fêtes !'",
+                "completion_link_label": "TEXT NOT NULL DEFAULT 'Découvrir la surprise'",
+                "completion_link_url": "TEXT",
             },
         )
         conn.execute(
@@ -1588,6 +1953,38 @@ def init_db() -> None:
             ("Galerie", "Banque de photos"),
         )
         repair_stored_text_encoding(conn)
+        conn.execute(
+            "UPDATE christmas_calendars SET image_url = ? WHERE image_url = ?",
+            (CHRISTMAS_DEFAULT_IMAGE, "/static/hero-garden.png"),
+        )
+
+        christmas_count = conn.execute(
+            "SELECT COUNT(*) AS count FROM christmas_calendars"
+        ).fetchone()["count"]
+        if christmas_count == 0:
+            created = now_iso()
+            cursor = conn.execute(
+                """
+                INSERT INTO christmas_calendars
+                    (year, eyebrow, title, intro, image_url, accent_color, layout_variant,
+                     published, show_in_nav, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, 3, 1, 1, ?, ?)
+                """,
+                (
+                    2026,
+                    "24 jours de découvertes",
+                    "Le calendrier de l’Avent du jardin",
+                    "Chaque jour, une nouvelle partie de l’image se dévoile avec une recette, un conseil jardinage ou une idée à partager.",
+                    CHRISTMAS_DEFAULT_IMAGE,
+                    CHRISTMAS_ACCENT_DEFAULT,
+                    created,
+                    created,
+                ),
+            )
+            populate_christmas_days(conn, cursor.lastrowid)
+        else:
+            for calendar in conn.execute("SELECT id FROM christmas_calendars").fetchall():
+                populate_christmas_days(conn, calendar["id"])
 
         article_count = conn.execute("SELECT COUNT(*) AS count FROM articles").fetchone()["count"]
         if article_count == 0:
@@ -1753,7 +2150,7 @@ def cookie_consent_html() -> str:
   <div class="cookie-banner" data-cookie-banner hidden>
     <div>
       <strong>Gestion des cookies</strong>
-      <p>Le site utilise uniquement les éléments nécessaires par défaut. Les statistiques, la publicité et les contenus externes ne sont activés qu’avec ton accord.</p>
+      <p>Avec ton accord, le calendrier de l’Avent mémorise les cases découvertes dans un cookie sur cet appareil. Si les cookies sont supprimés, cette progression sera perdue. Les statistiques, la publicité et les contenus externes restent eux aussi soumis à ton choix.</p>
     </div>
     <div class="cookie-actions">
       <button class="button secondary" type="button" data-cookie-refuse>Tout refuser</button>
@@ -1773,6 +2170,7 @@ def layout(
     og_type: str = "website",
     structured_data: list[dict[str, object]] | None = None,
     indexable: bool = True,
+    cookie_controls_enabled: bool = True,
 ) -> str:
     settings = read_settings()
     site_title = settings["site_title"]
@@ -1794,13 +2192,14 @@ def layout(
     )
     show_instagram_banner = current_path == "/" or current_path.startswith("/galerie")
     instagram_banner = instagram_footer_banner(settings) if show_instagram_banner else ""
-    cookie_controls = "" if current_path.startswith("/admin") else cookie_consent_html()
+    privacy_ui_enabled = cookie_controls_enabled and not current_path.startswith("/admin")
+    cookie_controls = cookie_consent_html() if privacy_ui_enabled else ""
     cookie_footer_button = (
         ""
-        if current_path.startswith("/admin")
+        if not privacy_ui_enabled
         else '<button class="footer-cookie-link" type="button" data-cookie-open>Gestion des cookies</button>'
     )
-    tracking_head = "" if current_path.startswith("/admin") else google_ads_head(settings, track_conversion)
+    tracking_head = google_ads_head(settings, track_conversion) if privacy_ui_enabled else ""
     brand_mark = (
         f'<img class="brand-logo" src="{e(logo_url)}" alt="">'
         if logo_url
@@ -1820,16 +2219,21 @@ def layout(
       </button>
     </form>"""
     )
-    nav = "".join(
+    nav_items = [
+        nav_link("/", "Accueil", current_path),
+        nav_link("/agenda", "Programmation", current_path),
+        nav_link("/articles", "Articles", current_path),
+        nav_link("/galerie", "Photos", current_path),
+    ]
+    if christmas_nav_enabled():
+        nav_items.append(nav_link("/noel", "Noël", current_path))
+    nav_items.extend(
         [
-            nav_link("/", "Accueil", current_path),
-            nav_link("/agenda", "Programmation", current_path),
-            nav_link("/articles", "Articles", current_path),
-            nav_link("/galerie", "Photos", current_path),
             nav_link("/infos-pratiques", "Infos pratiques", current_path),
             nav_link("/contact", "Contact", current_path),
         ]
     )
+    nav = "".join(nav_items)
     footer_class = "site-footer footer-reveal"
     return f"""<!doctype html>
 <html lang="fr">
@@ -2515,6 +2919,293 @@ def terms_page() -> str:
     )
 
 
+def christmas_calendar_page(
+    requested_year: int | None = None,
+    today: date | None = None,
+    preview_calendar_id: int | None = None,
+    preview_unlock_all: bool = False,
+) -> str | None:
+    display_date = today or date.today()
+    is_preview = preview_calendar_id is not None
+    if not is_preview and not christmas_public_window(display_date):
+        return None
+    with connect() as conn:
+        if preview_calendar_id is not None:
+            calendar = conn.execute(
+                "SELECT * FROM christmas_calendars WHERE id = ?",
+                (preview_calendar_id,),
+            ).fetchone()
+        elif requested_year is not None:
+            calendar = conn.execute(
+                "SELECT * FROM christmas_calendars WHERE year = ? AND published = 1",
+                (requested_year,),
+            ).fetchone()
+        else:
+            calendar = conn.execute(
+                "SELECT * FROM christmas_calendars WHERE year = ? AND published = 1",
+                (display_date.year,),
+            ).fetchone()
+            if calendar is None:
+                calendar = conn.execute(
+                    "SELECT * FROM christmas_calendars WHERE published = 1 ORDER BY year DESC LIMIT 1"
+                ).fetchone()
+        if calendar is None:
+            return None
+        days = conn.execute(
+            "SELECT * FROM christmas_days WHERE calendar_id = ? ORDER BY day_number",
+            (calendar["id"],),
+        ).fetchall()
+        archives = conn.execute(
+            "SELECT year, title FROM christmas_calendars WHERE published = 1 ORDER BY year DESC"
+        ).fetchall()
+
+    open_days = [
+        row
+        for row in days
+        if bool(row["enabled"])
+        and (
+            preview_unlock_all
+            or christmas_day_is_open(calendar["year"], row["day_number"], display_date, True)
+        )
+    ]
+    image_url = calendar["image_url"] or CHRISTMAS_DEFAULT_IMAGE
+    doors: list[str] = []
+    modals: list[str] = []
+    layout_variant = normalize_christmas_layout_variant(calendar["layout_variant"])
+    door_positions = christmas_door_positions(calendar["year"], layout_variant)
+    puzzle_overlay = christmas_puzzle_overlay_svg(calendar["year"], layout_variant)
+    puzzle_clip_definitions = christmas_puzzle_clip_definitions(
+        calendar["year"], layout_variant
+    )
+    for row in days:
+        day_number = row["day_number"]
+        grid_position = door_positions[day_number - 1]
+        grid_row = (grid_position - 1) // 6 + 1
+        grid_column = (grid_position - 1) % 6 + 1
+        piece_color = "green" if (grid_row + grid_column + layout_variant) % 2 else "red"
+        puzzle_tabs = "".join(
+            f'<span class="christmas-puzzle-tab is-{direction}" aria-hidden="true"></span>'
+            for direction in christmas_puzzle_tabs(
+                calendar["year"], layout_variant, grid_row, grid_column
+            )
+        )
+        position_class = f"puzzle-position-{grid_position}"
+        enabled = bool(row["enabled"])
+        is_open = enabled and (
+            preview_unlock_all
+            or christmas_day_is_open(calendar["year"], day_number, display_date, True)
+        )
+        is_missed = christmas_day_can_restore(
+            calendar["year"], day_number, display_date, enabled
+        )
+        can_restore = (
+            not is_preview
+            and not preview_unlock_all
+            and is_missed
+        )
+        modal_id = f"christmas-day-{calendar['id']}-{day_number}"
+        if is_open or can_restore:
+            door_state = "is-open is-covered" if is_open else "is-locked is-covered is-past"
+            disabled_attribute = "" if is_open else "disabled"
+            initial_label = "Découvrir" if is_open else "Rattrapage le 25"
+            aria_label = (
+                f"Ouvrir la case {day_number} : {row['title']}"
+                if is_open
+                else f"Case {day_number} déjà passée, disponible au rattrapage le 25 décembre"
+            )
+            doors.append(
+                f"""
+                <button class="christmas-door puzzle-piece puzzle-{piece_color} {position_class} {door_state}"
+                  type="button" data-christmas-day-open="{modal_id}" data-christmas-day="{day_number}"
+                  data-christmas-open-label="Ouvrir la case {day_number} : {e(row['title'])}" {disabled_attribute}
+                  aria-controls="{modal_id}" aria-haspopup="dialog" aria-label="{e(aria_label)}">
+                  <span class="christmas-piece-art" aria-hidden="true"><img src="{e(image_url)}" alt=""></span>
+                  {puzzle_tabs}
+                  <span class="christmas-door-number">{day_number}</span>
+                  <span class="christmas-door-open-label" data-christmas-day-label>{initial_label}</span>
+                </button>
+                """
+            )
+            day_image = (
+                f'<img class="christmas-day-image" src="{e(row["image_url"])}" alt="">'
+                if row["image_url"]
+                else ""
+            )
+            day_link = (
+                f'<a class="button primary" href="{e(row["link_url"])}" target="_blank" rel="noopener noreferrer">{e(row["link_label"] or "En savoir plus")}</a>'
+                if row["link_url"] and valid_optional_url(row["link_url"])
+                else ""
+            )
+            modals.append(
+                f"""
+                <div class="event-modal christmas-modal" id="{modal_id}" role="dialog" aria-modal="true"
+                  aria-labelledby="{modal_id}-title" data-christmas-day-modal hidden>
+                  <div class="event-modal-backdrop" data-christmas-day-close></div>
+                  <article class="event-modal-panel christmas-day-panel" tabindex="-1">
+                    <button class="event-modal-close" type="button" aria-label="Fermer" data-christmas-day-close>&times;</button>
+                    <p class="christmas-modal-day">{day_number} décembre · {e(CHRISTMAS_CATEGORY_LABELS[normalize_christmas_category(row['category'])])}</p>
+                    <h2 id="{modal_id}-title">{e(row['title'])}</h2>
+                    {f'<p class="lead">{e(row["teaser"])}</p>' if row['teaser'] else ''}
+                    {day_image}
+                    <div class="christmas-day-copy">{paragraphs(row['body'])}</div>
+                    {day_link}
+                  </article>
+                </div>
+                """
+            )
+        else:
+            locked_label = (
+                "Case désactivée"
+                if not enabled
+                else "Case manquée, disponible au rattrapage le 25 décembre"
+                if is_missed
+                else f"Disponible le {day_number} décembre {calendar['year']}"
+            )
+            doors.append(
+                f"""
+                <button class="christmas-door puzzle-piece puzzle-{piece_color} {position_class} is-locked"
+                  type="button" disabled aria-label="Case {day_number}, {e(locked_label)}">
+                  {puzzle_tabs}
+                  <span class="christmas-door-number">{day_number}</span>
+                  <span class="christmas-door-lock" aria-hidden="true">✦</span>
+                </button>
+                """
+            )
+
+    enabled_count = sum(1 for row in days if row["enabled"])
+    completion_enabled = bool(calendar["completion_enabled"])
+    completion_eligible = (
+        completion_enabled
+        and enabled_count == 24
+        and display_date == date(calendar["year"], 12, 24)
+    )
+    completion_link = (
+        f'<a class="button primary" href="{e(calendar["completion_link_url"])}" target="_blank" rel="noopener noreferrer">{e(calendar["completion_link_label"] or CHRISTMAS_COMPLETION_LINK_LABEL_DEFAULT)}</a>'
+        if calendar["completion_link_url"]
+        and valid_optional_url(calendar["completion_link_url"])
+        else ""
+    )
+    completion_reopen_button = (
+        '<button class="button small christmas-completion-reopen" type="button" data-christmas-completion-open hidden>Voir ma récompense</button>'
+        if completion_enabled
+        else ""
+    )
+    completion_modal = (
+        f"""
+        <div class="event-modal christmas-modal christmas-completion-modal" role="dialog" aria-modal="true"
+          aria-labelledby="christmas-completion-title" data-christmas-completion-modal hidden>
+          <div class="event-modal-backdrop" data-christmas-completion-close></div>
+          <article class="event-modal-panel christmas-day-panel christmas-completion-panel" tabindex="-1">
+            <button class="event-modal-close" type="button" aria-label="Fermer" data-christmas-completion-close>&times;</button>
+            <div class="christmas-completion-icon" aria-hidden="true">✦</div>
+            <p class="christmas-modal-day">24 décembre · Calendrier complété</p>
+            <h2 id="christmas-completion-title">{e(calendar['completion_title'] or CHRISTMAS_COMPLETION_TITLE_DEFAULT)}</h2>
+            <div class="christmas-completion-copy">{paragraphs(calendar['completion_message'] or CHRISTMAS_COMPLETION_MESSAGE_DEFAULT)}</div>
+            {completion_link}
+            <small>Cette réussite est enregistrée avec votre progression sur cet appareil.</small>
+          </article>
+        </div>
+        """
+        if completion_enabled
+        else ""
+    )
+    progress = f'<span data-christmas-discovered-count>0</span> / {enabled_count} cases découvertes'
+    archive_links = "".join(
+        f'<a class="album-filter {"is-active" if row["year"] == calendar["year"] else ""}" href="/noel?annee={row["year"]}">{row["year"]}</a>'
+        for row in archives
+    )
+    preview_label = (
+        "toutes les cases déverrouillées"
+        if preview_unlock_all
+        else f"date simulée : {format_date(display_date.isoformat())}"
+    )
+    preview_banner = (
+        f"""
+        <div class="christmas-preview-banner">
+          <strong>Mode test · {preview_label}</strong>
+          <a class="button small secondary" href="/admin/noel/{calendar['id']}">Retour à l’édition</a>
+        </div>
+        """
+        if is_preview
+        else ""
+    )
+    body = f"""
+    <style nonce="{CSP_NONCE_PLACEHOLDER}">.christmas-theme{{--christmas-accent:{normalize_hex_color(calendar['accent_color'])}}}</style>
+    <div class="christmas-theme">
+    {preview_banner}
+    <section class="christmas-hero">
+      <div class="christmas-hero-aura" aria-hidden="true"></div>
+      <div class="christmas-hero-copy">
+        <p class="eyebrow"><span></span>{e(calendar['eyebrow'] or 'Calendrier de l’Avent')}</p>
+        <h1>{e(calendar['title'])}</h1>
+        <p>{e(calendar['intro'] or '')}</p>
+        <div class="christmas-progress">
+          <strong>{progress}</strong>
+          <span>{len(open_days)} case{'s' if len(open_days) != 1 else ''} disponible{'s' if len(open_days) != 1 else ''} aujourd’hui.</span>
+        </div>
+      </div>
+      <div class="christmas-season-stamp" aria-label="Édition {calendar['year']}">
+        <span>{calendar['year']}</span>
+        <small>24 fragments<br>1 image mystère</small>
+      </div>
+    </section>
+    <section class="section christmas-section">
+      <div class="christmas-stage">
+        <div class="christmas-calendar-head">
+          <div>
+            <p class="eyebrow">Expérience interactive · Décembre {calendar['year']}</p>
+            <h2>Une image. 24 fragments.<br><em>Votre mois de décembre.</em></h2>
+          </div>
+          {f'<div class="album-filters christmas-years" aria-label="Archives de Noël">{archive_links}</div>' if len(archives) > 1 and not is_preview else ''}
+        </div>
+        {'' if is_preview else '''
+        <aside class="christmas-progress-consent" data-christmas-progress-notice>
+          <span class="christmas-consent-icon" aria-hidden="true">◎</span>
+          <div>
+            <strong>Retrouvez votre image là où vous l’avez laissée</strong>
+            <p>Avec votre accord, les cases découvertes sont enregistrées dans un cookie sur cet appareil. Si vous supprimez vos cookies ou changez de navigateur, votre progression sera perdue.</p>
+            <small data-christmas-progress-status>Autorisation à choisir dans la gestion des cookies.</small>
+          </div>
+          <button class="button small secondary" type="button" data-cookie-open>Gérer l’autorisation</button>
+        </aside>
+        '''}
+        <div class="christmas-board-frame">
+          <div class="christmas-board-meta" aria-hidden="true">
+            <span><i></i> Image en cours de révélation</span>
+            <span>6 × 4 · 24 pièces</span>
+          </div>
+          <div class="christmas-picture-board" aria-label="Calendrier de l’Avent {calendar['year']}"
+            data-christmas-calendar data-christmas-year="{calendar['year']}" data-christmas-preview="{'1' if is_preview else '0'}"
+            data-christmas-completion-eligible="{'1' if completion_eligible else '0'}" data-christmas-completion-required="{enabled_count}">
+            <img class="christmas-reveal-image" src="{e(image_url)}" alt="Image mystère du calendrier de l’Avent {calendar['year']}">
+            <div class="christmas-board-vignette" aria-hidden="true"></div>
+            {puzzle_clip_definitions}
+            <div class="christmas-doors">{"".join(doors)}</div>
+            {puzzle_overlay}
+          </div>
+          <div class="christmas-board-caption">
+            <p><span aria-hidden="true">↗</span> Du 1er au 24, une seule nouvelle case s’ouvre chaque jour. Dès le 25 décembre, toutes les cases oubliées peuvent être rattrapées.</p>
+            {completion_reopen_button}
+            <span class="christmas-board-signature">Vert-Tige · {calendar['year']}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+    {"".join(modals)}
+    {completion_modal}
+    </div>
+    """
+    return layout(
+        f"Calendrier de l’Avent {calendar['year']}",
+        body,
+        "/noel",
+        description=compact_text(calendar["intro"], calendar["title"], 160),
+        image_url=image_url,
+        indexable=not is_preview,
+        cookie_controls_enabled=not is_preview,
+    )
+
+
 def admin_shell(title: str, content: str, tab: str = "/admin") -> str:
     tabs = "".join(
         [
@@ -2523,6 +3214,7 @@ def admin_shell(title: str, content: str, tab: str = "/admin") -> str:
             nav_link("/admin/practical", "Infos pratiques", tab),
             nav_link("/admin/events", "Programmation", tab),
             nav_link("/admin/articles", "Articles", tab),
+            nav_link("/admin/noel", "Noël", tab),
             nav_link("/admin/photos", "Photos", tab),
             nav_link("/admin/messages", "Messages", tab),
             nav_link("/admin/users", "Comptes", tab),
@@ -2569,6 +3261,7 @@ def admin_dashboard() -> str:
             "articles": conn.execute("SELECT COUNT(*) AS count FROM articles").fetchone()["count"],
             "events": conn.execute("SELECT COUNT(*) AS count FROM events").fetchone()["count"],
             "photos": conn.execute("SELECT COUNT(*) AS count FROM photos").fetchone()["count"],
+            "christmas": conn.execute("SELECT COUNT(*) AS count FROM christmas_calendars").fetchone()["count"],
             "messages": conn.execute(
                 "SELECT COUNT(*) AS count FROM messages WHERE handled = 0"
             ).fetchone()["count"],
@@ -2579,6 +3272,7 @@ def admin_dashboard() -> str:
             ("articles", counts["articles"]),
             ("événements", counts["events"]),
             ("photos", counts["photos"]),
+            ("éditions de Noël", counts["christmas"]),
             ("messages à traiter", counts["messages"]),
         ]
     )
@@ -2589,6 +3283,7 @@ def admin_dashboard() -> str:
       <a class="admin-action" href="/admin/practical"><strong>Infos pratiques</strong><span>Mettre à jour l’adresse, les transports, la carte et les horaires.</span></a>
       <a class="admin-action" href="/admin/events/new"><strong>Nouvel événement</strong><span>Ajouter un atelier ou une permanence au calendrier.</span></a>
       <a class="admin-action" href="/admin/articles/new"><strong>Nouvel article</strong><span>Rédiger une actualité et choisir si elle est mise en avant.</span></a>
+      <a class="admin-action" href="/admin/noel"><strong>Calendrier de l’Avent</strong><span>Préparer une édition annuelle, ses 24 cases et tester les dates d’ouverture.</span></a>
       <a class="admin-action" href="/admin/photos"><strong>Ajouter des photos</strong><span>Alimenter la banque d’images du jardin.</span></a>
       <a class="admin-action" href="/admin/maintenance"><strong>Sauvegardes et logs</strong><span>Créer un backup, télécharger les données utiles et consulter le journal serveur.</span></a>
     </div>
@@ -3074,6 +3769,433 @@ def admin_article_edit_page(article_id: int | None = None) -> str:
     return admin_shell(title, article_form(row), "/admin/articles")
 
 
+def admin_christmas_guide_page() -> str:
+    content = """
+    <div class="admin-toolbar christmas-guide-toolbar">
+      <a class="button secondary" href="/admin/noel">← Toutes les éditions</a>
+    </div>
+    <div class="christmas-guide">
+      <section class="info-panel christmas-admin-help christmas-guide-intro">
+        <p class="eyebrow">Le guide de l’équipe</p>
+        <h2>Préparer Noël, pas à pas</h2>
+        <p>Une édition par année, une image et 24 surprises. Suivez ces six étapes pour préparer, tester et publier le calendrier depuis cet espace de gestion.</p>
+        <p><strong>Le réflexe à garder :</strong> enregistrez chaque formulaire avant de changer de page ou d’ouvrir un aperçu.</p>
+      </section>
+      <nav class="christmas-guide-contents" aria-label="Sommaire du tutoriel de Noël">
+        <a href="#guide-edition">1. Créer l’édition</a>
+        <a href="#guide-image">2. Choisir l’image</a>
+        <a href="#guide-cases">3. Remplir les cases</a>
+        <a href="#guide-cadeau">4. Préparer la finale</a>
+        <a href="#guide-test">5. Tout tester</a>
+        <a href="#guide-publication">6. Publier</a>
+      </nav>
+      <div class="christmas-guide-steps">
+        <section class="christmas-guide-step" id="guide-edition" aria-labelledby="guide-edition-title">
+          <div class="christmas-guide-step-heading"><span aria-hidden="true">01</span><h2 id="guide-edition-title">Créer l’édition de l’année</h2></div>
+          <ol>
+            <li>Dans <strong>Administration → Noël</strong>, renseignez l’année dans « Préparer une nouvelle année ».</li>
+            <li>Choisissez les <strong>24 propositions prêtes à adapter</strong> ou une ancienne édition comme point de départ, puis cliquez sur <strong>Créer l’édition</strong>.</li>
+            <li>Personnalisez le titre, le texte d’introduction et la couleur principale dans les réglages.</li>
+          </ol>
+          <p class="christmas-guide-tip">Une copie reprend les contenus, l’image et les réglages du message final. Elle est créée en brouillon : relisez les dates et les éventuelles modalités du cadeau pour la nouvelle année.</p>
+        </section>
+        <section class="christmas-guide-step" id="guide-image" aria-labelledby="guide-image-title">
+          <div class="christmas-guide-step-heading"><span aria-hidden="true">02</span><h2 id="guide-image-title">Choisir l’image et son puzzle</h2></div>
+          <ol>
+            <li>Choisissez une image dans la bibliothèque ou utilisez <strong>Ou envoyer une nouvelle image</strong>. Privilégiez une image horizontale au format <strong>3:2</strong>, par exemple 1 800 × 1 200 pixels.</li>
+            <li>Regardez le <strong>Gabarit de découpe réel</strong> : il montre les contours des 24 pièces et le jour qui révélera chaque détail. Le découpage est automatique.</li>
+            <li>Essayez les 12 choix de <strong>Disposition des pièces</strong> pour mélanger les numéros. Utilisez <strong>Masquer les repères</strong> ou <strong>Télécharger le gabarit PNG</strong> pour préparer le visuel.</li>
+            <li>Cliquez sur <strong>Enregistrer les réglages</strong>.</li>
+          </ol>
+          <p class="christmas-guide-tip">Les numéros du gabarit servent à vous guider. Importez l’image sans numéros ni traits : le site dessine les pièces par-dessus. L’image importée reste dans la bibliothèque sans être ajoutée à la galerie publique.</p>
+        </section>
+        <section class="christmas-guide-step" id="guide-cases" aria-labelledby="guide-cases-title">
+          <div class="christmas-guide-step-heading"><span aria-hidden="true">03</span><h2 id="guide-cases-title">Remplir les 24 surprises</h2></div>
+          <ol>
+            <li>En bas des réglages, cliquez sur un jour dans <strong>Les 24 cases</strong>.</li>
+            <li>Choisissez la catégorie, puis rédigez le <strong>titre</strong>, une courte accroche et le <strong>contenu</strong> : recette, conseil jardinage, atelier, souvenir du jardin…</li>
+            <li>Ajoutez, si utile, une illustration et un lien HTTPS avec son libellé. L’illustration accompagne le contenu ; l’image mystère reste commune à tout le puzzle.</li>
+            <li>Gardez <strong>Case active</strong> cochée, cliquez sur <strong>Enregistrer la case</strong>, puis passez au jour suivant.</li>
+          </ol>
+          <p class="christmas-guide-tip">Une case désactivée reste fermée, y compris en test. Pour un calendrier complet et le message final du 24 décembre, les 24 cases doivent être actives.</p>
+        </section>
+        <section class="christmas-guide-step" id="guide-cadeau" aria-labelledby="guide-cadeau-title">
+          <div class="christmas-guide-step-heading"><span aria-hidden="true">04</span><h2 id="guide-cadeau-title">Préparer les félicitations et le cadeau</h2></div>
+          <ol>
+            <li>Dans les réglages de l’édition, ouvrez la partie <strong>Félicitations et cadeau éventuel</strong> et cochez <strong>Activer le message final</strong>.</li>
+            <li>Personnalisez le titre et le message. Si l’association offre un cadeau, précisez quoi, où, quand et comment le récupérer.</li>
+            <li>Ajoutez éventuellement un lien HTTPS et le texte de son bouton, puis <strong>Enregistrer les réglages</strong>.</li>
+          </ol>
+          <p>Le message s’affiche <strong>le 24 décembre uniquement</strong>, une fois les 24 cases découvertes, à la fermeture de la dernière surprise. Le bouton <strong>Voir ma récompense</strong> permet de le rouvrir ce jour-là. Le rattrapage à partir du 25 ne déclenche pas cette finale.</p>
+          <p class="christmas-guide-tip">Exemple à adapter : « Bravo pour les 24 surprises ! Retrouvez l’équipe au jardin le [date] entre [horaires] pour recevoir [cadeau]. » L’association organise la remise selon les modalités indiquées.</p>
+        </section>
+        <section class="christmas-guide-step" id="guide-test" aria-labelledby="guide-test-title">
+          <div class="christmas-guide-step-heading"><span aria-hidden="true">05</span><h2 id="guide-test-title">Tout vérifier avant l’ouverture</h2></div>
+          <ol>
+            <li><strong>Enregistrez vos réglages et vos cases</strong> avant de lancer un test. L’aperçu affiche la dernière version enregistrée.</li>
+            <li>Cliquez sur <strong>Tester les 24 cases</strong> : toutes les cases actives sont déverrouillées, même hors décembre et pour une édition en brouillon. Ouvrez les 24 surprises et fermez la dernière pour vérifier le message final.</li>
+            <li>Pour contrôler les règles du site, choisissez une date dans <strong>Tester à la date du</strong>, puis cliquez sur <strong>Ouvrir l’aperçu</strong>. Par exemple : le 12 pour une journée normale, le 25 pour le rattrapage.</li>
+          </ol>
+          <p class="christmas-guide-tip">Le test est réservé à l’administration. Il ne mémorise pas les découvertes dans le cookie visiteur : rechargez l’aperçu pour recommencer. Un aperçu à une date précise garde les restrictions du jour ; utilisez « Tester les 24 cases » pour tout ouvrir.</p>
+        </section>
+        <section class="christmas-guide-step" id="guide-publication" aria-labelledby="guide-publication-title">
+          <div class="christmas-guide-step-heading"><span aria-hidden="true">06</span><h2 id="guide-publication-title">Publier et préparer la suite</h2></div>
+          <ol>
+            <li>Vérifiez l’année, l’image, les 24 contenus actifs et les modalités du cadeau éventuel.</li>
+            <li>Cochez <strong>Publier cette édition</strong> et, pour ajouter l’accès dans la navigation, <strong>Afficher « Noël » dans le menu pendant le mois de décembre</strong>.</li>
+            <li>Cliquez sur <strong>Enregistrer les réglages</strong>. Vous pouvez préparer la publication en avance : le module public est accessible <strong>du 1er au 31 décembre inclus</strong>.</li>
+            <li>L’année suivante, revenez à <strong>Noël → Préparer une nouvelle année</strong> et choisissez cette édition comme point de départ.</li>
+          </ol>
+          <p class="christmas-guide-tip">Pendant décembre, les changements enregistrés sur une édition publiée sont visibles par les visiteurs. Préparez et testez d’abord en brouillon.</p>
+        </section>
+      </div>
+      <section class="christmas-guide-faq" aria-labelledby="guide-questions-title">
+        <p class="eyebrow">Les réponses à garder sous la main</p>
+        <h2 id="guide-questions-title">Questions fréquentes</h2>
+        <details>
+          <summary>Pourquoi le calendrier ou l’onglet Noël n’apparaît-il pas sur le site ?</summary>
+          <p>Le module public est réservé au mois de décembre. Vérifiez aussi qu’une édition de l’année concernée est publiée. Pour afficher le lien dans la navigation, cochez l’option du menu et enregistrez. L’administration et ses aperçus restent accessibles toute l’année.</p>
+        </details>
+        <details>
+          <summary>Pourquoi certaines cases sont-elles bloquées ?</summary>
+          <p>Du 1er au 24 décembre, seule la case du jour peut être découverte. Les cases déjà découvertes restent consultables ; les jours manqués attendent le rattrapage, du 25 au 31 décembre. En aperçu daté, ces règles s’appliquent aussi. En test complet, vérifiez que la case est active si elle reste bloquée.</p>
+        </details>
+        <details>
+          <summary>Comment la progression des visiteurs est-elle conservée ?</summary>
+          <p>Le visiteur choisit s’il autorise la sauvegarde dans un cookie sur son appareil. Sans accord, il peut consulter les cases disponibles, mais son avancement n’est pas mémorisé après rechargement. Supprimer les cookies, changer de navigateur ou d’appareil fait perdre l’accès à la progression enregistrée. Le choix se retrouve dans « Gérer l’autorisation » sur le calendrier.</p>
+        </details>
+        <details>
+          <summary>Pourquoi le message final ne s’affiche-t-il pas ?</summary>
+          <p>Vérifiez que « Activer le message final » est coché, que les 24 cases sont actives et que les réglages sont enregistrés. En visite normale, il faut avoir découvert les 24 cases le 24 décembre. Pour tester cette séquence, ouvrez « Tester les 24 cases », découvrez-les toutes, puis fermez la dernière surprise.</p>
+        </details>
+        <details>
+          <summary>Pourquoi mes modifications n’apparaissent-elles pas dans l’aperçu ?</summary>
+          <p>Enregistrez le formulaire concerné avec « Enregistrer les réglages » ou « Enregistrer la case », puis rechargez l’aperçu déjà ouvert. Le choix d’une nouvelle image ou d’une disposition dans le formulaire prépare la modification ; l’enregistrement l’applique.</p>
+        </details>
+      </section>
+      <div class="admin-toolbar christmas-guide-toolbar"><a class="button primary" href="/admin/noel">Préparer mon calendrier</a><a class="text-link" href="#guide-edition">Revenir à la première étape ↑</a></div>
+    </div>
+    """
+    return admin_shell("Mode d’emploi · Noël", content, "/admin/noel")
+
+
+def admin_christmas_page(query: dict[str, list[str]] | None = None) -> str:
+    query = query or {}
+    with connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT c.*, COUNT(d.id) AS day_count,
+                   SUM(CASE WHEN d.enabled = 1 THEN 1 ELSE 0 END) AS enabled_count
+            FROM christmas_calendars c
+            LEFT JOIN christmas_days d ON d.calendar_id = c.id
+            GROUP BY c.id
+            ORDER BY c.year DESC
+            """
+        ).fetchall()
+    source_options = "".join(
+        f'<option value="{row["id"]}" {"selected" if index == 0 else ""}>{row["year"]} · {e(row["title"])}</option>'
+        for index, row in enumerate(rows)
+    )
+    row_html = "".join(
+        f"""
+        <tr>
+          <td><strong>{row['year']}</strong><span>{'Publié' if row['published'] else 'Brouillon'} · {row['enabled_count'] or 0}/24 cases actives</span></td>
+          <td><strong>{e(row['title'])}</strong><span>{'Visible dans le menu en décembre' if row['show_in_nav'] else 'Masqué du menu'}</span></td>
+          <td class="actions">
+            <a class="button small secondary" href="/admin/noel/{row['id']}">Configurer</a>
+            <a class="button small secondary" href="/admin/noel/{row['id']}/preview?mode=all" target="_blank">Tester les 24 cases</a>
+            <form method="post" action="/admin/noel/{row['id']}/delete"><button class="button small danger" type="submit">Supprimer</button></form>
+          </td>
+        </tr>
+        """
+        for row in rows
+    )
+    status = query.get("status", [""])[0]
+    notices = {
+        "created": '<div class="notice success">La nouvelle édition et ses 24 cases sont prêtes à être personnalisées.</div>',
+        "duplicate": '<div class="notice success">L’édition a été dupliquée en brouillon avec ses 24 contenus.</div>',
+        "exists": '<div class="notice error">Une édition existe déjà pour cette année.</div>',
+        "invalid": '<div class="notice error">Choisis une année comprise entre 2020 et 2100.</div>',
+        "deleted": '<div class="notice success">L’édition a été supprimée.</div>',
+    }
+    content = f"""
+    {notices.get(status, '')}
+    <div class="admin-two-column christmas-admin-intro">
+      <form class="form-panel" method="post" action="/admin/noel/create">
+        <h2>Préparer une nouvelle année</h2>
+        <label>Année<input type="number" name="year" min="2020" max="2100" value="{max(date.today().year, 2026) + 1}" required></label>
+        <label>Point de départ
+          <select name="source_calendar_id">
+            <option value="" {"selected" if not rows else ""}>24 propositions prêtes à adapter</option>
+            {source_options}
+          </select>
+        </label>
+        <p class="form-note">Une copie reprend l’image, les textes, les couleurs et les 24 cases, mais reste en brouillon jusqu’à publication.</p>
+        <button class="button primary" type="submit">Créer l’édition</button>
+      </form>
+      <div class="info-panel christmas-admin-help">
+        <p class="eyebrow">Le guide de l’équipe</p>
+        <h2>Préparer Noël, pas à pas</h2>
+        <p>Créer l’année, choisir l’image et son puzzle, remplir les surprises, préparer le cadeau, tester et publier : retrouvez toutes les étapes et les réponses aux questions fréquentes.</p>
+        <div><a class="button secondary" href="/admin/noel/guide">Ouvrir le mode d’emploi</a></div>
+      </div>
+    </div>
+    <div class="section-heading admin-section-heading"><div><p class="eyebrow">Éditions</p><h2>Calendriers disponibles</h2></div></div>
+    <table class="admin-table christmas-admin-table">
+      <thead><tr><th>Année</th><th>Présentation</th><th></th></tr></thead>
+      <tbody>{row_html or '<tr><td colspan="3">Aucune édition.</td></tr>'}</tbody>
+    </table>
+    """
+    return admin_shell("Noël", content, "/admin/noel")
+
+
+def admin_christmas_edit_page(calendar_id: int, query: dict[str, list[str]] | None = None) -> str:
+    query = query or {}
+    with connect() as conn:
+        calendar = conn.execute(
+            "SELECT * FROM christmas_calendars WHERE id = ?", (calendar_id,)
+        ).fetchone()
+        if calendar is None:
+            return not_found_page()
+        days = conn.execute(
+            "SELECT * FROM christmas_days WHERE calendar_id = ? ORDER BY day_number",
+            (calendar_id,),
+        ).fetchall()
+        photos = conn.execute(
+            """
+            SELECT p.*, a.name AS album_name
+            FROM photos p
+            LEFT JOIN photo_albums a ON a.id = p.album_id
+            ORDER BY p.created_at DESC
+            """
+        ).fetchall()
+    image_url = calendar["image_url"] or CHRISTMAS_DEFAULT_IMAGE
+    photo_options = photo_library_options(photos, image_url)
+    layout_variant = normalize_christmas_layout_variant(calendar["layout_variant"])
+    cut_layouts = {
+        str(variant): christmas_door_positions(calendar["year"], variant)
+        for variant in range(1, 13)
+    }
+    current_positions = cut_layouts[str(layout_variant)]
+    day_by_position = {
+        position: day_number
+        for day_number, position in enumerate(current_positions, start=1)
+    }
+    cut_cells = "".join(
+        f"""
+        <span class="christmas-cut-cell" data-cut-position="{position}">
+          <span class="christmas-cut-number" data-cut-number>{day_by_position[position]}</span>
+        </span>
+        """
+        for position in range(1, 25)
+    )
+    cut_overlay = christmas_puzzle_overlay_svg(calendar["year"], layout_variant, admin=True)
+    day_rows = "".join(
+        f"""
+        <a class="christmas-admin-day {'is-disabled' if not row['enabled'] else ''}" href="/admin/noel/{calendar_id}/jours/{row['day_number']}">
+          <span class="christmas-admin-day-number">{row['day_number']}</span>
+          <span><strong>{e(row['title'])}</strong><small>{e(CHRISTMAS_CATEGORY_LABELS[normalize_christmas_category(row['category'])])}{' · masquée' if not row['enabled'] else ''}</small></span>
+        </a>
+        """
+        for row in days
+    )
+    status = query.get("status", [""])[0]
+    notices = {
+        "saved": '<div class="notice success">Les réglages de l’édition ont été enregistrés.</div>',
+        "created": '<div class="notice success">L’édition et ses 24 cases sont prêtes à être personnalisées.</div>',
+        "duplicate": '<div class="notice success">L’édition a été dupliquée en brouillon avec ses 24 contenus.</div>',
+    }
+    notice = notices.get(status, "")
+    published = "checked" if calendar["published"] else ""
+    show_in_nav = "checked" if calendar["show_in_nav"] else ""
+    completion_enabled = "checked" if calendar["completion_enabled"] else ""
+    content = f"""
+    {notice}
+    <div class="christmas-admin-toolbar">
+      <div class="button-row">
+        <a class="button secondary" href="/admin/noel">← Toutes les éditions</a>
+        <a class="button secondary" href="/admin/noel/guide" target="_blank" rel="noopener" title="Ouvrir le mode d’emploi dans un nouvel onglet">Mode d’emploi ↗</a>
+      </div>
+      <form class="christmas-test-form" method="get" action="/admin/noel/{calendar_id}/preview" target="_blank">
+        <label>Tester à la date du <input type="date" name="date" value="{calendar['year']}-12-12"></label>
+        <button class="button primary" type="submit">Ouvrir l’aperçu</button>
+        <a class="button secondary" href="/admin/noel/{calendar_id}/preview?mode=all" target="_blank">Tester les 24 cases</a>
+      </form>
+    </div>
+    <form class="form-panel christmas-settings-form" method="post" action="/admin/noel/{calendar_id}/save" enctype="multipart/form-data">
+      <div class="section-heading admin-section-heading"><div><p class="eyebrow">Édition {calendar['year']}</p><h2>Présentation et publication</h2></div></div>
+      <div class="form-row">
+        <label>Sur-titre<input name="eyebrow" value="{e(calendar['eyebrow'] or '')}"></label>
+        <label>Couleur principale<input type="color" name="accent_color" value="{normalize_hex_color(calendar['accent_color'])}"></label>
+      </div>
+      <label>Disposition des pièces
+        <select name="layout_variant" data-christmas-layout-select>{christmas_layout_options(layout_variant)}</select>
+        <span class="form-note">Douze mélanges sont disponibles. Les numéros restent accessibles dans l’ordre au clavier, mais sont dispersés visuellement dans le puzzle.</span>
+      </label>
+      <label>Titre<input name="title" value="{e(calendar['title'])}" required></label>
+      <label>Texte d’introduction<textarea name="intro" rows="4">{e(calendar['intro'] or '')}</textarea></label>
+      <div class="image-picker christmas-image-picker" data-christmas-cut-template
+        data-christmas-year="{calendar['year']}"
+        data-current-image="{e(image_url)}"
+        data-default-image="{e(CHRISTMAS_DEFAULT_IMAGE)}"
+        data-cut-layouts="{e(json.dumps(cut_layouts, separators=(',', ':')))}">
+        <div class="christmas-cut-preview">
+          <div class="christmas-cut-preview-heading">
+            <div><p class="field-label">Image mystère</p><strong>Gabarit de découpe réel</strong></div>
+            <span>6 colonnes × 4 lignes</span>
+          </div>
+          <div class="christmas-cut-canvas">
+            <img class="cover-preview christmas-cover-preview" src="{e(image_url)}" alt="Image actuelle du calendrier" data-christmas-cut-image>
+            {cut_overlay}
+            <div class="christmas-cut-grid" aria-label="Découpage de l’image en 24 cases" data-christmas-cut-grid>{cut_cells}</div>
+          </div>
+          <div class="christmas-cut-actions">
+            <button class="button small secondary" type="button" data-christmas-cut-toggle>Masquer les repères</button>
+            <button class="button small secondary" type="button" data-christmas-cut-download>Télécharger le gabarit PNG</button>
+          </div>
+          <p class="form-note">Les traits et numéros sont réservés à l’administration. Ils montrent exactement quel détail sera révélé par chaque jour.</p>
+        </div>
+        <div class="image-picker-controls">
+          <input type="hidden" name="current_image_url" value="{e(image_url)}">
+          <label>Choisir dans la bibliothèque
+            <select name="image_choice" data-christmas-image-choice>
+              <option value="">Conserver l’image actuelle</option>
+              <option value="__none__">Aucune image (visuel par défaut)</option>
+              {photo_options}
+            </select>
+          </label>
+          <label>Ou envoyer une nouvelle image<input type="file" name="christmas_image" accept="image/*" data-christmas-image-file></label>
+          <p class="form-note">Choisis idéalement une image horizontale au format 3:2. Elle sera automatiquement découpée en 24 fragments (6 × 4) et conservée dans la bibliothèque sans être ajoutée à la galerie publique.</p>
+        </div>
+      </div>
+      <section class="christmas-reward-settings">
+        <div class="section-heading admin-section-heading">
+          <div><p class="eyebrow">24 décembre</p><h2>Félicitations et cadeau éventuel</h2></div>
+          <label class="christmas-reward-toggle"><input type="checkbox" name="completion_enabled" value="1" {completion_enabled}> Activer le message final</label>
+        </div>
+        <label>Titre de félicitations<input name="completion_title" value="{e(calendar['completion_title'] or CHRISTMAS_COMPLETION_TITLE_DEFAULT)}"></label>
+        <label>Message final ou modalités du cadeau<textarea name="completion_message" rows="4">{e(calendar['completion_message'] or CHRISTMAS_COMPLETION_MESSAGE_DEFAULT)}</textarea></label>
+        <div class="form-row">
+          <label>Texte du bouton facultatif<input name="completion_link_label" value="{e(calendar['completion_link_label'] or CHRISTMAS_COMPLETION_LINK_LABEL_DEFAULT)}"></label>
+          <label>Lien HTTPS facultatif<input type="url" name="completion_link_url" value="{e(calendar['completion_link_url'] or '')}" placeholder="https://..."></label>
+        </div>
+        <p class="form-note">Le message apparaît uniquement le 24 décembre, après la découverte des 24 cases actives. Le mode « Tester les 24 cases » permet de vérifier entièrement cette séquence.</p>
+      </section>
+      <div class="check-row">
+        <label><input type="checkbox" name="published" value="1" {published}> Publier cette édition</label>
+        <label><input type="checkbox" name="show_in_nav" value="1" {show_in_nav}> Afficher « Noël » dans le menu pendant le mois de décembre</label>
+      </div>
+      <button class="button primary" type="submit">Enregistrer les réglages</button>
+    </form>
+    <div class="section-heading admin-section-heading"><div><p class="eyebrow">Contenus</p><h2>Les 24 cases</h2></div><span class="form-note">Chaque case peut être modifiée ou masquée.</span></div>
+    <div class="christmas-admin-days">{day_rows}</div>
+    """
+    return admin_shell(f"Noël {calendar['year']}", content, "/admin/noel")
+
+
+def admin_christmas_day_page(calendar_id: int, day_number: int, query: dict[str, list[str]] | None = None) -> str:
+    if day_number < 1 or day_number > 24:
+        return not_found_page()
+    query = query or {}
+    with connect() as conn:
+        calendar = conn.execute(
+            "SELECT * FROM christmas_calendars WHERE id = ?", (calendar_id,)
+        ).fetchone()
+        row = conn.execute(
+            "SELECT * FROM christmas_days WHERE calendar_id = ? AND day_number = ?",
+            (calendar_id, day_number),
+        ).fetchone()
+        photos = conn.execute(
+            """
+            SELECT p.*, a.name AS album_name
+            FROM photos p
+            LEFT JOIN photo_albums a ON a.id = p.album_id
+            ORDER BY p.created_at DESC
+            """
+        ).fetchall()
+    if calendar is None or row is None:
+        return not_found_page()
+    image_url = row["image_url"] or ""
+    current_preview = (
+        f'<img class="cover-preview" src="{e(image_url)}" alt="Illustration actuelle de la case">'
+        if image_url
+        else '<div class="empty-state compact">Cette case utilise uniquement l’image mystère.</div>'
+    )
+    photo_options = photo_library_options(photos, image_url)
+    enabled = "checked" if row["enabled"] else ""
+    previous_link = (
+        f'<a class="button secondary" href="/admin/noel/{calendar_id}/jours/{day_number - 1}">← Jour {day_number - 1}</a>'
+        if day_number > 1
+        else '<span></span>'
+    )
+    next_link = (
+        f'<a class="button secondary" href="/admin/noel/{calendar_id}/jours/{day_number + 1}">Jour {day_number + 1} →</a>'
+        if day_number < 24
+        else '<span></span>'
+    )
+    notice = (
+        '<div class="notice success">La case a été enregistrée.</div>'
+        if query.get("status") == ["saved"]
+        else ""
+    )
+    content = f"""
+    {notice}
+    <div class="christmas-day-nav">{previous_link}<a class="text-link" href="/admin/noel/{calendar_id}">Toutes les cases</a>{next_link}</div>
+    <p class="christmas-guide-context">Besoin d’aide pour cette case ? <a class="text-link" href="/admin/noel/guide#guide-cases" target="_blank" rel="noopener">Consulter le mode d’emploi ↗</a></p>
+    <form class="form-panel" method="post" action="/admin/noel/{calendar_id}/jours/{day_number}" enctype="multipart/form-data">
+      <div class="section-heading admin-section-heading"><div><p class="eyebrow">{day_number} décembre {calendar['year']}</p><h2>Contenu de la case</h2></div></div>
+      <div class="form-row">
+        <label>Catégorie<select name="category">{christmas_category_options(row['category'])}</select></label>
+        <label class="christmas-enabled-check"><span>Disponibilité</span><span class="inline-check"><input type="checkbox" name="enabled" value="1" {enabled}> Case active</span></label>
+      </div>
+      <label>Titre<input name="title" value="{e(row['title'])}" required></label>
+      <label>Accroche<input name="teaser" value="{e(row['teaser'] or '')}" placeholder="Une phrase courte affichée dans la surprise"></label>
+      <label>Contenu<textarea name="body" rows="8" required>{e(row['body'] or '')}</textarea></label>
+      <div class="image-picker">
+        <div><p class="field-label">Illustration facultative</p>{current_preview}</div>
+        <div class="image-picker-controls">
+          <input type="hidden" name="current_image_url" value="{e(image_url)}">
+          <label>Choisir dans la bibliothèque
+            <select name="image_choice">
+              <option value="">Conserver l’image actuelle</option>
+              <option value="__none__">Aucune illustration</option>
+              {photo_options}
+            </select>
+          </label>
+          <label>Ou envoyer une nouvelle image<input type="file" name="day_image" accept="image/*"></label>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Lien facultatif (HTTPS)<input type="url" name="link_url" value="{e(row['link_url'] or '')}" placeholder="https://..."></label>
+        <label>Libellé du lien<input name="link_label" value="{e(row['link_label'] or '')}" placeholder="En savoir plus"></label>
+      </div>
+      <button class="button primary" type="submit">Enregistrer la case</button>
+    </form>
+    """
+    return admin_shell(f"Noël {calendar['year']} · jour {day_number}", content, "/admin/noel")
+
+
+def admin_christmas_preview_page(calendar_id: int, query: dict[str, list[str]] | None = None) -> str | None:
+    query = query or {}
+    with connect() as conn:
+        calendar = conn.execute(
+            "SELECT year FROM christmas_calendars WHERE id = ?", (calendar_id,)
+        ).fetchone()
+    if calendar is None:
+        return None
+    unlock_all = query.get("mode", [""])[0] == "all"
+    raw_date = query.get("date", [f"{calendar['year']}-12-24"])[0]
+    try:
+        simulated_date = date.fromisoformat(raw_date)
+    except ValueError:
+        simulated_date = date(calendar["year"], 12, 24)
+    return christmas_calendar_page(
+        today=simulated_date,
+        preview_calendar_id=calendar_id,
+        preview_unlock_all=unlock_all,
+    )
+
+
 def admin_photos_page() -> str:
     with connect() as conn:
         albums = conn.execute("SELECT * FROM photo_albums ORDER BY name").fetchall()
@@ -3384,6 +4506,18 @@ def sitemap_xml() -> str:
         sitemap_entry("/mentions-legales", settings, changefreq="yearly", priority="0.3"),
         sitemap_entry("/conditions-generales-utilisation", settings, changefreq="yearly", priority="0.3"),
     ]
+    try:
+        with connect() as conn:
+            christmas = conn.execute(
+                "SELECT MAX(updated_at) AS updated_at FROM christmas_calendars WHERE published = 1"
+            ).fetchone()
+    except sqlite3.Error:
+        christmas = None
+    if christmas_public_window() and christmas and christmas["updated_at"]:
+        entries.insert(
+            4,
+            sitemap_entry("/noel", settings, christmas["updated_at"], "daily", "0.8"),
+        )
     with connect() as conn:
         articles = conn.execute(
             "SELECT slug, updated_at FROM articles WHERE published = 1 ORDER BY updated_at DESC"
@@ -3590,6 +4724,12 @@ class VertTigeHandler(BaseHTTPRequestHandler):
                 self.respond_html(content)
         elif path == "/galerie":
             self.respond_html(gallery_page(query))
+        elif path == "/noel":
+            content = christmas_calendar_page(int_or_none(query.get("annee", [""])[0]))
+            if content is None:
+                self.respond_html(not_found_page(), status=404)
+            else:
+                self.respond_html(content)
         elif path == "/infos-pratiques":
             self.respond_html(practical_info_page())
         elif path == "/contact":
@@ -3657,6 +4797,20 @@ class VertTigeHandler(BaseHTTPRequestHandler):
             self.respond_html(admin_article_edit_page())
         elif match := re.fullmatch(r"/admin/articles/(\d+)/edit", path):
             self.respond_html(admin_article_edit_page(int(match.group(1))))
+        elif path == "/admin/noel":
+            self.respond_html(admin_christmas_page(query))
+        elif path == "/admin/noel/guide":
+            self.respond_html(admin_christmas_guide_page())
+        elif match := re.fullmatch(r"/admin/noel/(\d+)/preview", path):
+            content = admin_christmas_preview_page(int(match.group(1)), query)
+            if content is None:
+                self.respond_html(not_found_page(), status=404)
+            else:
+                self.respond_html(content)
+        elif match := re.fullmatch(r"/admin/noel/(\d+)/jours/(\d+)", path):
+            self.respond_html(admin_christmas_day_page(int(match.group(1)), int(match.group(2)), query))
+        elif match := re.fullmatch(r"/admin/noel/(\d+)", path):
+            self.respond_html(admin_christmas_edit_page(int(match.group(1)), query))
         elif path == "/admin/photos":
             self.respond_html(admin_photos_page())
         elif path == "/admin/messages":
@@ -3712,6 +4866,14 @@ class VertTigeHandler(BaseHTTPRequestHandler):
             self.save_article(int(match.group(1)))
         elif match := re.fullmatch(r"/admin/articles/(\d+)/delete", path):
             self.delete_row("articles", int(match.group(1)), "/admin/articles")
+        elif path == "/admin/noel/create":
+            self.create_christmas_calendar()
+        elif match := re.fullmatch(r"/admin/noel/(\d+)/save", path):
+            self.save_christmas_calendar(int(match.group(1)))
+        elif match := re.fullmatch(r"/admin/noel/(\d+)/delete", path):
+            self.delete_christmas_calendar(int(match.group(1)))
+        elif match := re.fullmatch(r"/admin/noel/(\d+)/jours/(\d+)", path):
+            self.save_christmas_day(int(match.group(1)), int(match.group(2)))
         elif path == "/admin/photos/albums/create":
             self.create_photo_album()
         elif match := re.fullmatch(r"/admin/photos/albums/(\d+)/delete", path):
@@ -4077,6 +5239,221 @@ class VertTigeHandler(BaseHTTPRequestHandler):
                 )
         self.redirect("/admin/articles")
 
+    def create_christmas_calendar(self) -> None:
+        form, _ = self.read_form()
+        year = int_or_none(form.get("year"))
+        source_calendar_id = int_or_none(form.get("source_calendar_id"))
+        if year is None or year < 2020 or year > 2100:
+            self.redirect("/admin/noel?status=invalid")
+            return
+        with connect() as conn:
+            if conn.execute(
+                "SELECT id FROM christmas_calendars WHERE year = ?", (year,)
+            ).fetchone():
+                self.redirect("/admin/noel?status=exists")
+                return
+            source = None
+            if source_calendar_id is not None:
+                source = conn.execute(
+                    "SELECT * FROM christmas_calendars WHERE id = ?", (source_calendar_id,)
+                ).fetchone()
+            created = now_iso()
+            if source is not None:
+                values = (
+                    year,
+                    source["eyebrow"],
+                    source["title"],
+                    source["intro"],
+                    source["image_url"],
+                    source["accent_color"],
+                    normalize_christmas_layout_variant(source["layout_variant"]) % 12 + 1,
+                    1 if source["show_in_nav"] else 0,
+                    1 if source["completion_enabled"] else 0,
+                    source["completion_title"],
+                    source["completion_message"],
+                    source["completion_link_label"],
+                    source["completion_link_url"],
+                    created,
+                    created,
+                )
+            else:
+                values = (
+                    year,
+                    "24 jours de découvertes",
+                    "Le calendrier de l’Avent du jardin",
+                    "Chaque jour, une partie de l’image se dévoile avec une idée à cuisiner, jardiner ou partager.",
+                    CHRISTMAS_DEFAULT_IMAGE,
+                    CHRISTMAS_ACCENT_DEFAULT,
+                    (year % 12) + 1,
+                    1,
+                    1,
+                    CHRISTMAS_COMPLETION_TITLE_DEFAULT,
+                    CHRISTMAS_COMPLETION_MESSAGE_DEFAULT,
+                    CHRISTMAS_COMPLETION_LINK_LABEL_DEFAULT,
+                    "",
+                    created,
+                    created,
+                )
+            cursor = conn.execute(
+                """
+                INSERT INTO christmas_calendars
+                    (year, eyebrow, title, intro, image_url, accent_color, layout_variant,
+                     published, show_in_nav, completion_enabled, completion_title,
+                     completion_message, completion_link_label, completion_link_url,
+                     created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                values,
+            )
+            populate_christmas_days(
+                conn,
+                cursor.lastrowid,
+                source["id"] if source is not None else None,
+            )
+        status = "duplicate" if source is not None else "created"
+        self.redirect(f"/admin/noel/{cursor.lastrowid}?status={status}")
+
+    def save_christmas_calendar(self, calendar_id: int) -> None:
+        form, files = self.read_form()
+        title = form.get("title", "").strip()
+        if not title:
+            self.redirect(f"/admin/noel/{calendar_id}")
+            return
+        with connect() as conn:
+            calendar = conn.execute(
+                "SELECT * FROM christmas_calendars WHERE id = ?", (calendar_id,)
+            ).fetchone()
+            if calendar is None:
+                self.redirect("/admin/noel")
+                return
+            image_url = calendar["image_url"] or CHRISTMAS_DEFAULT_IMAGE
+            image_choice = form.get("image_choice", "").strip()
+            if image_choice == "__none__":
+                image_url = CHRISTMAS_DEFAULT_IMAGE
+            elif image_choice:
+                image_url = existing_photo_upload_url(image_choice) or image_url
+            upload = files.get("christmas_image")
+            if upload and upload.data:
+                try:
+                    uploaded_url = save_photo_upload(
+                        conn,
+                        upload,
+                        title=f"Image mystère Noël {calendar['year']}",
+                        caption=title,
+                        visibility="library",
+                    )
+                except ValueError:
+                    uploaded_url = None
+                if uploaded_url:
+                    image_url = uploaded_url
+            conn.execute(
+                """
+                UPDATE christmas_calendars
+                SET eyebrow = ?, title = ?, intro = ?, image_url = ?, accent_color = ?, layout_variant = ?,
+                    published = ?, show_in_nav = ?, completion_enabled = ?, completion_title = ?,
+                    completion_message = ?, completion_link_label = ?, completion_link_url = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (
+                    form.get("eyebrow", "").strip(),
+                    title,
+                    form.get("intro", "").strip(),
+                    image_url,
+                    normalize_hex_color(form.get("accent_color")),
+                    normalize_christmas_layout_variant(form.get("layout_variant")),
+                    1 if form.get("published") == "1" else 0,
+                    1 if form.get("show_in_nav") == "1" else 0,
+                    1 if form.get("completion_enabled") == "1" else 0,
+                    form.get("completion_title", "").strip()
+                    or CHRISTMAS_COMPLETION_TITLE_DEFAULT,
+                    form.get("completion_message", "").strip()
+                    or CHRISTMAS_COMPLETION_MESSAGE_DEFAULT,
+                    form.get("completion_link_label", "").strip()
+                    or CHRISTMAS_COMPLETION_LINK_LABEL_DEFAULT,
+                    form.get("completion_link_url", "").strip()
+                    if valid_optional_url(form.get("completion_link_url", "").strip())
+                    else "",
+                    now_iso(),
+                    calendar_id,
+                ),
+            )
+        self.redirect(f"/admin/noel/{calendar_id}?status=saved")
+
+    def save_christmas_day(self, calendar_id: int, day_number: int) -> None:
+        if day_number < 1 or day_number > 24:
+            self.redirect(f"/admin/noel/{calendar_id}")
+            return
+        form, files = self.read_form()
+        title = form.get("title", "").strip()
+        body = form.get("body", "").strip()
+        link_url = form.get("link_url", "").strip()
+        if not title or not body or not valid_optional_url(link_url):
+            self.redirect(f"/admin/noel/{calendar_id}/jours/{day_number}")
+            return
+        with connect() as conn:
+            calendar = conn.execute(
+                "SELECT * FROM christmas_calendars WHERE id = ?", (calendar_id,)
+            ).fetchone()
+            row = conn.execute(
+                "SELECT * FROM christmas_days WHERE calendar_id = ? AND day_number = ?",
+                (calendar_id, day_number),
+            ).fetchone()
+            if calendar is None or row is None:
+                self.redirect("/admin/noel")
+                return
+            image_url = row["image_url"] or ""
+            image_choice = form.get("image_choice", "").strip()
+            if image_choice == "__none__":
+                image_url = ""
+            elif image_choice:
+                image_url = existing_photo_upload_url(image_choice) or image_url
+            upload = files.get("day_image")
+            if upload and upload.data:
+                try:
+                    uploaded_url = save_photo_upload(
+                        conn,
+                        upload,
+                        title=f"Noël {calendar['year']} · jour {day_number}",
+                        caption=title,
+                        visibility="library",
+                    )
+                except ValueError:
+                    uploaded_url = None
+                if uploaded_url:
+                    image_url = uploaded_url
+            conn.execute(
+                """
+                UPDATE christmas_days
+                SET category = ?, title = ?, teaser = ?, body = ?, image_url = ?,
+                    link_url = ?, link_label = ?, enabled = ?, updated_at = ?
+                WHERE calendar_id = ? AND day_number = ?
+                """,
+                (
+                    normalize_christmas_category(form.get("category")),
+                    title,
+                    form.get("teaser", "").strip(),
+                    body,
+                    image_url,
+                    link_url,
+                    form.get("link_label", "").strip(),
+                    1 if form.get("enabled") == "1" else 0,
+                    now_iso(),
+                    calendar_id,
+                    day_number,
+                ),
+            )
+            conn.execute(
+                "UPDATE christmas_calendars SET updated_at = ? WHERE id = ?",
+                (now_iso(), calendar_id),
+            )
+        self.redirect(f"/admin/noel/{calendar_id}/jours/{day_number}?status=saved")
+
+    def delete_christmas_calendar(self, calendar_id: int) -> None:
+        with connect() as conn:
+            conn.execute("DELETE FROM christmas_days WHERE calendar_id = ?", (calendar_id,))
+            conn.execute("DELETE FROM christmas_calendars WHERE id = ?", (calendar_id,))
+        self.redirect("/admin/noel?status=deleted")
+
     def upload_photo(self) -> None:
         form, files = self.read_form()
         upload = files.get("photo")
@@ -4410,7 +5787,7 @@ class VertTigeHandler(BaseHTTPRequestHandler):
             "connect-src 'self' https://www.google-analytics.com https://www.googletagmanager.com https://googleads.g.doubleclick.net https://plausible.io https://api.usefathom.com; "
             "img-src 'self' data: https://www.google.com https://www.google.fr https://googleads.g.doubleclick.net; "
             "frame-src https://www.openstreetmap.org; "
-            "style-src 'self'; form-action 'self'",
+            f"style-src 'self' 'nonce-{nonce}'; form-action 'self'",
         )
         self.end_headers()
         self.wfile.write(data)

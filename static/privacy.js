@@ -1,9 +1,11 @@
 (() => {
   const STORAGE_KEY = "vertTigeConsent";
+  const CONSENT_VERSION = 2;
 
   const readConsent = () => {
     try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+      const consent = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+      return consent?.version === CONSENT_VERSION ? consent : null;
     } catch (_error) {
       return null;
     }
@@ -14,6 +16,7 @@
       STORAGE_KEY,
       JSON.stringify({
         accepted: Boolean(accepted),
+        version: CONSENT_VERSION,
         savedAt: new Date().toISOString(),
       }),
     );
@@ -109,6 +112,11 @@
     writeConsent(accepted);
     hideBanner();
     applyConsent();
+    document.dispatchEvent(
+      new CustomEvent("vertTigeConsentChanged", {
+        detail: { accepted: Boolean(accepted) },
+      }),
+    );
   };
 
   document.querySelectorAll("[data-cookie-accept]").forEach((button) => {

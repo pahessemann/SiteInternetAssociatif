@@ -15,6 +15,7 @@ Base de travail pour le site de l'association de jardin partage Vert-Tige, a Par
 - un formulaire de contact qui enregistre les messages en base ;
 - un editeur d'articles avec image de couverture depuis la banque de photos ou par envoi direct ;
 - un outil de format et recadrage d'image pour les articles ;
+- un calendrier de l'Avent annuel qui revele progressivement une image, avec 24 contenus personnalisables ;
 - des comptes administrateurs nominatifs avec un role referent ;
 - une page mentions legales configurable ;
 - une preparation Google Ads avec tag et conversion contact configurables ;
@@ -68,6 +69,36 @@ mot de passe : jardin
 Le compte `admin` est le compte referent : il peut creer et gerer les autres comptes administrateurs depuis l'onglet `Comptes`.
 
 Les comptes administrateurs peuvent modifier les contenus du site. Le compte referent peut aussi gerer les roles, desactiver des comptes et reinitialiser les mots de passe.
+
+### Module Noel
+
+Le menu `Administration > Noel` permet de gerer le calendrier de l'Avent sans
+modifier le code :
+
+- creer une edition pour une nouvelle annee ou dupliquer une edition precedente ;
+- choisir le titre, l'introduction, la couleur, l'image mystere et l'une des 12 dispositions de puzzle ;
+- afficher les 24 numeros dans un ordre melange, stable pour chaque edition ;
+- decouper automatiquement l'image mystere en 24 vraies pieces imbriquees, avec un gabarit numerote visible et telechargeable dans l'administration ;
+- publier ou conserver l'edition en brouillon et choisir sa presence dans le menu ;
+- modifier, illustrer ou masquer chacune des 24 cases ;
+- classer les contenus (recette, jardinage, nature, atelier, ecogeste, histoire ou surprise) ;
+- personnaliser le message de felicitation du 24 decembre et, si besoin, les modalites ou le lien d'un cadeau de l'association ;
+- simuler n'importe quelle date ou deverrouiller les 24 cases pour un test complet avant publication.
+
+Le bouton `Mode d'emploi` ouvre le tutoriel integre a l'administration :
+`/admin/noel/guide`. Il explique les six etapes de preparation et propose une
+FAQ sur la visibilite, les cases bloquees, les cookies et le message final.
+Il est accessible depuis la liste des editions, leurs reglages et chaque case.
+
+Une seule nouvelle case publique se deverrouille chaque jour du 1er au 24
+decembre. Les cases deja ouvertes restent consultables et, a partir du 25,
+les 24 cases sont disponibles pour rattraper les jours oublies. Le lien et la
+page publique restent disponibles jusqu'au 31 decembre inclus. Avec le
+consentement du visiteur, les cases decouvertes
+sont memorisees dans un cookie client ; supprimer les cookies efface cette
+progression. Les editions publiees des annees precedentes restent consultables
+depuis les archives du module en decembre. Une edition dupliquee est toujours
+creee en brouillon afin d'eviter une publication accidentelle.
 
 Avant une mise en ligne publique, definir au minimum :
 

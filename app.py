@@ -65,6 +65,9 @@ MONTHS = [
 ]
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 MAX_UPLOAD_BYTES = 8 * 1024 * 1024
+# Un formulaire peut contenir plusieurs photos de 8 Mo (galerie d'article).
+MAX_REQUEST_BYTES = 40 * 1024 * 1024
+ARTICLE_GALLERY_LIMIT = 8
 PHOTO_VISIBILITY_LABELS = {
     "gallery": "Galerie uniquement",
     "article": "Articles uniquement",
@@ -129,7 +132,7 @@ HOME_DESCRIPTION_SIZES = {
 RICH_TEXT_SIZE_CLASSES = {f"text-size-{size}" for size in HOME_DESCRIPTION_SIZES}
 
 DEFAULT_SETTINGS = {
-    "site_title": "Vert-Tige",
+    "site_title": "Jardin Vert-Tige",
     "tagline": "Jardin partagé à Paris 14",
     "home_intro": NEW_HOME_INTRO,
     "home_about_text": OLD_HOME_INTRO,
@@ -183,7 +186,7 @@ DEFAULT_SETTINGS = {
     "analytics_site_id": "",
     "site_url": "",
     "seo_description": (
-        "Vert-Tige est un jardin partagé associatif du 14e arrondissement de Paris, "
+        "Le jardin Vert-Tige est un jardin partagé associatif du 14e arrondissement de Paris, "
         "avec des ateliers, des événements, des articles et une galerie photo."
     ),
     "seo_image_url": "/static/hero-garden.png",
@@ -1548,6 +1551,11 @@ def website_schema(settings: dict[str, str]) -> dict[str, object]:
         "@context": "https://schema.org",
         "@type": "WebSite",
         "name": settings["site_title"],
+        "alternateName": [
+            name
+            for name in ("Jardin Vert-Tige", "Vert-Tige", "Jardin partagé Vert-Tige")
+            if name != settings["site_title"]
+        ],
         "url": public_base_url(settings),
         "description": compact_text(settings.get("seo_description"), settings.get("home_intro")),
         "potentialAction": {
@@ -1603,12 +1611,14 @@ def event_schema(row: sqlite3.Row, settings: dict[str, str]) -> dict[str, object
 
 def article_schema(row: sqlite3.Row, settings: dict[str, str]) -> dict[str, object]:
     image = row["image_url"] or settings.get("seo_image_url")
+    images = [absolute_url(image, settings)]
+    images.extend(absolute_url(url, settings) for url in article_gallery_urls(row) if url != image)
     return {
         "@context": "https://schema.org",
         "@type": "Article",
         "headline": row["title"],
         "description": compact_text(row["summary"], row["body"]),
-        "image": absolute_url(image, settings),
+        "image": images if len(images) > 1 else images[0],
         "datePublished": row["created_at"],
         "dateModified": row["updated_at"],
         "url": absolute_url(f"/articles/{quote(row['slug'])}", settings),
@@ -1861,6 +1871,13 @@ def init_db() -> None:
         )
         ensure_columns(
             conn,
+            "articles",
+            {
+                "gallery_urls": "TEXT NOT NULL DEFAULT '[]'",
+            },
+        )
+        ensure_columns(
+            conn,
             "messages",
             {
                 "mail_token": "TEXT",
@@ -1938,6 +1955,20 @@ def init_db() -> None:
         conn.execute(
             "UPDATE settings SET value = ? WHERE key = 'home_intro' AND value = ?",
             (NEW_HOME_INTRO, OLD_HOME_INTRO),
+        )
+        # Nom complet tel que les internautes le cherchent sur Google ("jardin Vert-Tige").
+        # Seule l'ancienne valeur par défaut est remplacée : un nom saisi dans l'admin est conservé.
+        conn.execute(
+            "UPDATE settings SET value = ? WHERE key = 'site_title' AND value = ?",
+            ("Jardin Vert-Tige", "Vert-Tige"),
+        )
+        conn.execute(
+            "UPDATE settings SET value = ? WHERE key = 'seo_description' AND value = ?",
+            (
+                DEFAULT_SETTINGS["seo_description"],
+                "Vert-Tige est un jardin partagé associatif du 14e arrondissement de Paris, "
+                "avec des ateliers, des événements, des articles et une galerie photo.",
+            ),
         )
         conn.execute(
             "UPDATE settings SET value = ? WHERE key = 'footer_address' AND value = ?",
@@ -2418,6 +2449,17 @@ def home_page() -> str:
     <section class="section">
       <div class="section-heading">
         <div>
+          <p class="eyebrow">{e(settings["home_articles_eyebrow"])}</p>
+          <h2>{e(settings["home_articles_title"])}</h2>
+        </div>
+        <a class="text-link" href="/articles">{e(settings["home_articles_link_label"])}</a>
+      </div>
+      <div class="article-layout">{article_html}</div>
+    </section>
+
+    <section class="section muted-band">
+      <div class="section-heading">
+        <div>
           <p class="eyebrow">{e(settings["home_events_eyebrow"])}</p>
           <h2>{e(settings["home_events_title"])}</h2>
         </div>
@@ -2425,17 +2467,6 @@ def home_page() -> str:
       </div>
       <div class="card-grid">{event_html}</div>
       {event_modal_html}
-    </section>
-
-    <section class="section muted-band">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">{e(settings["home_articles_eyebrow"])}</p>
-          <h2>{e(settings["home_articles_title"])}</h2>
-        </div>
-        <a class="text-link" href="/articles">{e(settings["home_articles_link_label"])}</a>
-      </div>
-      <div class="article-layout">{article_html}</div>
     </section>
 
     <section class="section">
@@ -2634,6 +2665,19 @@ def article_page(slug: str) -> str | None:
     if not row:
         return None
     image = row["image_url"] or "/static/hero-garden.png"
+    gallery_urls = article_gallery_urls(row)
+    gallery_html = ""
+    if gallery_urls:
+        items = "".join(
+            f'<a class="article-gallery-item" href="{e(url)}" target="_blank" rel="noopener">'
+            f'<img src="{e(url)}" alt="Photo {index} de l’article {e(row["title"])}" loading="lazy"></a>'
+            for index, url in enumerate(gallery_urls, start=1)
+        )
+        gallery_html = f"""
+      <section class="article-gallery" aria-label="Photos de l’article">
+        <h2>En images</h2>
+        <div class="article-gallery-grid">{items}</div>
+      </section>"""
     body = f"""
     <article class="article-page">
       <header class="article-header">
@@ -2642,7 +2686,7 @@ def article_page(slug: str) -> str | None:
         <p>{e(row["summary"] or "")}</p>
       </header>
       <img class="article-cover" src="{e(image)}" alt="">
-      <div class="article-body">{paragraphs(row["body"])}</div>
+      <div class="article-body">{paragraphs(row["body"])}</div>{gallery_html}
     </article>
     """
     return layout(
@@ -3675,14 +3719,34 @@ def article_form(row: sqlite3.Row | None = None) -> str:
     image_url = (row["image_url"] if row else "") or "/static/hero-garden.png"
     featured = "checked" if row and row["featured"] else ""
     published = "checked" if row is None or row["published"] else ""
+    gallery_urls = article_gallery_urls(row)
     with connect() as conn:
         photos = conn.execute(
             "SELECT * FROM photos WHERE visibility IN ('article', 'both', 'library') ORDER BY created_at DESC"
         ).fetchall()
+        all_photos = conn.execute("SELECT * FROM photos ORDER BY created_at DESC, id DESC").fetchall()
     photo_options = "".join(
         f'<option value="/static/uploads/{e(photo["filename"])}">{e(photo["title"] or photo["filename"])}</option>'
         for photo in photos
     )
+    photos_by_url = {f"/static/uploads/{photo['filename']}": photo for photo in all_photos}
+    gallery_candidates = [photos_by_url[url] for url in gallery_urls if url in photos_by_url]
+    gallery_candidates.extend(
+        photo
+        for photo in all_photos
+        if f"/static/uploads/{photo['filename']}" not in gallery_urls
+        and normalize_photo_visibility(photo["visibility"]) in {"article", "both", "library"}
+    )
+    gallery_choices = "".join(
+        f"""
+          <label class="gallery-choice">
+            <input type="checkbox" name="gallery_photo_{photo['id']}" value="/static/uploads/{e(photo['filename'])}"
+              {"checked" if f"/static/uploads/{photo['filename']}" in gallery_urls else ""}>
+            <img src="/static/uploads/{e(photo['filename'])}" alt="" loading="lazy">
+            <span>{e(photo["title"] or photo["filename"])}</span>
+          </label>"""
+        for photo in gallery_candidates
+    ) or '<p class="form-note">Aucune photo disponible pour les articles dans la banque de photos.</p>'
     current_preview = (
         f'<img class="cover-preview" src="{e(image_url)}" alt="Image de couverture actuelle">'
         if image_url
@@ -3733,6 +3797,15 @@ def article_form(row: sqlite3.Row | None = None) -> str:
         </div>
       </div>
       <label>Texte<textarea name="body" rows="12">{e(body)}</textarea></label>
+      <fieldset class="article-gallery-picker">
+        <legend>Photos de l’article (jusqu’à {ARTICLE_GALLERY_LIMIT})</legend>
+        <p class="form-note">Ces photos s’affichent sous le texte, en plus de l’image de couverture. Cocher les photos à afficher, décocher pour les retirer.</p>
+        <label>Ajouter de nouvelles photos
+          <input type="file" name="article_gallery" accept="image/*" multiple>
+        </label>
+        <p class="form-note">Plusieurs fichiers peuvent être sélectionnés en même temps (8 Mo maximum par photo, 40 Mo par envoi). Elles sont aussi ajoutées à la banque de photos avec la visibilité “Articles uniquement”.</p>
+        <div class="gallery-choice-grid">{gallery_choices}</div>
+      </fieldset>
       <div class="check-row">
         <label><input type="checkbox" name="published" value="1" {published}> Publié</label>
         <label><input type="checkbox" name="featured" value="1" {featured}> Mis en avant sur l’accueil</label>
@@ -4615,11 +4688,41 @@ def parse_multipart(content_type: str, body: bytes) -> tuple[dict[str, str], dic
         payload = part.get_payload(decode=True) or b""
         filename = part.get_filename()
         if filename:
-            files[name] = Upload(filename, part.get_content_type(), payload)
+            # Un champ <input type="file" multiple> envoie plusieurs fichiers sous le
+            # même nom : les suivants sont rangés sous "nom#2", "nom#3", etc.
+            key = name
+            index = 2
+            while key in files:
+                key = f"{name}#{index}"
+                index += 1
+            files[key] = Upload(filename, part.get_content_type(), payload)
         else:
             charset = part.get_content_charset() or "utf-8"
             fields[name] = payload.decode(charset, "replace")
     return fields, files
+
+
+def uploads_named(files: dict[str, Upload], name: str) -> list[Upload]:
+    uploads = []
+    if name in files:
+        uploads.append(files[name])
+    index = 2
+    while f"{name}#{index}" in files:
+        uploads.append(files[f"{name}#{index}"])
+        index += 1
+    return [upload for upload in uploads if upload and upload.data]
+
+
+def article_gallery_urls(row: sqlite3.Row | None) -> list[str]:
+    if row is None or "gallery_urls" not in row.keys() or not row["gallery_urls"]:
+        return []
+    try:
+        values = json.loads(row["gallery_urls"])
+    except (TypeError, ValueError):
+        return []
+    if not isinstance(values, list):
+        return []
+    return [value for value in values if isinstance(value, str) and value.startswith("/static/uploads/")]
 
 
 def safe_upload_name(original_name: str) -> str:
@@ -4934,7 +5037,7 @@ class VertTigeHandler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", "0") or "0")
         body = self.rfile.read(length)
         content_type = self.headers.get("Content-Type", "")
-        if length > MAX_UPLOAD_BYTES and content_type.startswith("multipart/form-data"):
+        if length > MAX_REQUEST_BYTES and content_type.startswith("multipart/form-data"):
             return {}, {}
         if content_type.startswith("multipart/form-data"):
             return parse_multipart(content_type, body)
@@ -5219,6 +5322,7 @@ class VertTigeHandler(BaseHTTPRequestHandler):
                     uploaded_url = None
                 if uploaded_url:
                     image_url = uploaded_url
+            gallery_urls = self.article_gallery_from_form(conn, form, files, title, article_id)
             values = (
                 title,
                 slug,
@@ -5227,14 +5331,16 @@ class VertTigeHandler(BaseHTTPRequestHandler):
                 image_url,
                 1 if form.get("featured") == "1" else 0,
                 1 if form.get("published") == "1" else 0,
+                json.dumps(gallery_urls),
                 now_iso(),
             )
             if article_id is None:
                 conn.execute(
                     """
                     INSERT INTO articles
-                        (title, slug, summary, body, image_url, featured, published, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        (title, slug, summary, body, image_url, featured, published, gallery_urls,
+                         created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (*values, now_iso()),
                 )
@@ -5243,12 +5349,52 @@ class VertTigeHandler(BaseHTTPRequestHandler):
                     """
                     UPDATE articles
                     SET title = ?, slug = ?, summary = ?, body = ?, image_url = ?,
-                        featured = ?, published = ?, updated_at = ?
+                        featured = ?, published = ?, gallery_urls = ?, updated_at = ?
                     WHERE id = ?
                     """,
                     (*values, article_id),
                 )
         self.redirect("/admin/articles")
+
+    @staticmethod
+    def article_gallery_from_form(
+        conn: sqlite3.Connection,
+        form: dict[str, str],
+        files: dict[str, Upload],
+        title: str,
+        article_id: int | None,
+    ) -> list[str]:
+        current: list[str] = []
+        if article_id is not None:
+            current = article_gallery_urls(
+                conn.execute("SELECT * FROM articles WHERE id = ?", (article_id,)).fetchone()
+            )
+        prefix = "/static/uploads/"
+        selected: list[str] = []
+        for key, value in form.items():
+            url = value.strip()
+            if not key.startswith("gallery_photo_") or not url.startswith(prefix) or url in selected:
+                continue
+            if conn.execute("SELECT id FROM photos WHERE filename = ?", (url.removeprefix(prefix),)).fetchone():
+                selected.append(url)
+        # Les photos déjà présentes gardent leur ordre, les nouvelles s'ajoutent à la suite.
+        gallery = [url for url in current if url in selected]
+        gallery.extend(url for url in selected if url not in gallery)
+        for upload in uploads_named(files, "article_gallery"):
+            if len(gallery) >= ARTICLE_GALLERY_LIMIT:
+                break
+            try:
+                uploaded_url = save_photo_upload(
+                    conn,
+                    upload,
+                    title=f"Photo de l’article : {title}",
+                    visibility="article",
+                )
+            except ValueError:
+                uploaded_url = None
+            if uploaded_url:
+                gallery.append(uploaded_url)
+        return gallery[:ARTICLE_GALLERY_LIMIT]
 
     def create_christmas_calendar(self) -> None:
         form, _ = self.read_form()
@@ -5627,6 +5773,16 @@ class VertTigeHandler(BaseHTTPRequestHandler):
                     "UPDATE events SET image_url = '' WHERE image_url = ?",
                     (f"/static/uploads/{row['filename']}",),
                 )
+                deleted_url = f"/static/uploads/{row['filename']}"
+                for article in conn.execute(
+                    "SELECT * FROM articles WHERE gallery_urls LIKE ?",
+                    (f"%{row['filename']}%",),
+                ).fetchall():
+                    remaining = [url for url in article_gallery_urls(article) if url != deleted_url]
+                    conn.execute(
+                        "UPDATE articles SET gallery_urls = ? WHERE id = ?",
+                        (json.dumps(remaining), article["id"]),
+                    )
                 path = UPLOAD_DIR / row["filename"]
                 if path.exists() and path.is_file():
                     path.unlink()

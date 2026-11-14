@@ -1574,6 +1574,17 @@ def event_schema(row: sqlite3.Row, settings: dict[str, str]) -> dict[str, object
         "description": compact_text(row["description"], row["title"]),
         "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
         "eventStatus": "https://schema.org/EventScheduled",
+        "isAccessibleForFree": True,
+        "offers": {
+            "@type": "Offer",
+            "price": 0,
+            "priceCurrency": "EUR",
+        },
+        "performer": {
+            "@type": "Organization",
+            "name": settings["site_title"],
+            "url": public_base_url(settings),
+        },
         "organizer": {
             "@type": "Organization",
             "name": settings["site_title"],

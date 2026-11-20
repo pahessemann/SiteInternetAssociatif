@@ -198,7 +198,7 @@ class ChristmasCalendarTests(unittest.TestCase):
         )
         self.assertIn('data-christmas-completion-eligible="1"', page_24)
         self.assertIn("data-christmas-completion-modal", page_24)
-        self.assertIn("Voir ma récompense", page_24)
+        self.assertIn("Un message pour moi", page_24)
 
         page_25 = app.christmas_calendar_page(
             today=date(2026, 12, 25), preview_calendar_id=1, preview_unlock_all=True

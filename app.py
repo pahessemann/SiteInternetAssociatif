@@ -3141,7 +3141,7 @@ def christmas_calendar_page(
         else ""
     )
     completion_reopen_button = (
-        '<button class="button small christmas-completion-reopen" type="button" data-christmas-completion-open hidden>Voir ma récompense</button>'
+        '<button class="button small christmas-completion-reopen" type="button" data-christmas-completion-open hidden>Un message pour moi</button>'
         if completion_enabled
         else ""
     )
@@ -3910,7 +3910,7 @@ def admin_christmas_guide_page() -> str:
             <li>Personnalisez le titre et le message. Si l’association offre un cadeau, précisez quoi, où, quand et comment le récupérer.</li>
             <li>Ajoutez éventuellement un lien HTTPS et le texte de son bouton, puis <strong>Enregistrer les réglages</strong>.</li>
           </ol>
-          <p>Le message s’affiche <strong>le 24 décembre uniquement</strong>, une fois les 24 cases découvertes, à la fermeture de la dernière surprise. Le bouton <strong>Voir ma récompense</strong> permet de le rouvrir ce jour-là. Le rattrapage à partir du 25 ne déclenche pas cette finale.</p>
+          <p>Le message s’affiche <strong>le 24 décembre uniquement</strong>, une fois les 24 cases découvertes, à la fermeture de la dernière surprise. Le bouton <strong>Un message pour moi</strong> permet de le rouvrir ce jour-là. Le rattrapage à partir du 25 ne déclenche pas cette finale.</p>
           <p class="christmas-guide-tip">Exemple à adapter : « Bravo pour les 24 surprises ! Retrouvez l’équipe au jardin le [date] entre [horaires] pour recevoir [cadeau]. » L’association organise la remise selon les modalités indiquées.</p>
         </section>
         <section class="christmas-guide-step" id="guide-test" aria-labelledby="guide-test-title">
